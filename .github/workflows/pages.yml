@@ -29,13 +29,17 @@ jobs:
       - name: Build
         run: python3 build.py
       - name: Core tests
-        run: node tests/test_core.js | tee core.log && tail -1 core.log | grep -q 'fail 0$'
+        run: |
+          node tests/test_core.js | tee core.log && tail -1 core.log | grep -q 'fail 0$'
       - name: Install browser
-        run: pip install playwright && python -m playwright install --with-deps chromium
+        run: |
+          pip install playwright && python -m playwright install --with-deps chromium
       - name: Smoke test
-        run: python3 tests/e2e_smoke.py | tee smoke.log && grep -q '^found: \[\] errors: \[\]$' smoke.log
+        run: |
+          python3 tests/e2e_smoke.py | tee smoke.log && grep -q '^found: \[\] errors: \[\]$' smoke.log
       - name: PWA and sync test
-        run: python3 tests/e2e_pwa.py | tee pwa.log && grep -q '^pwa: ok$' pwa.log
+        run: |
+          python3 tests/e2e_pwa.py | tee pwa.log && grep -q '^pwa: ok$' pwa.log
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
