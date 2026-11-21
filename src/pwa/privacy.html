@@ -6,6 +6,7 @@
 <title>Privacy · SpacedCube</title>
 <meta name="description" content="What SpacedCube stores, where, and how to delete it.">
 <link rel="icon" href="icon-192.png" type="image/png">
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
 :root {
   --bg: #eceef2; --surface: #ffffff; --ink: #151920; --muted: #5a6271; --line: #dadee5; --accent: #1d5bd0;
@@ -38,7 +39,7 @@ a { color: var(--accent); }
   <p>SpacedCube is a free trainer for the 3x3 cube, run as a personal open-source project. It has no ads, no analytics and no tracking cookies.</p>
 
   <h2>Without an account</h2>
-  <p>Your progress is stored only in your browser (local storage). It never leaves your device unless you sign in. Loading the page sends the usual technical data (such as your IP address) to the services that deliver it: GitHub Pages (the app's files), Google Fonts (the fonts) and cdnjs by Cloudflare (the 3D viewer library).</p>
+  <p>Your progress is stored only in your browser (local storage). It never leaves your device unless you sign in. Everything the app needs, including fonts and the 3D viewer, is served from spacedcube.app itself by GitHub Pages, which receives the usual technical data of any web request (such as your IP address). No other service is contacted until you start signing in.</p>
 
   <h2>With an account</h2>
   <p>If you sign in to sync between devices, we store:</p>
@@ -52,8 +53,8 @@ a { color: var(--accent); }
   <ul>
     <li><b>Supabase</b>: database and sign-in. Servers in Ireland (EU).</li>
     <li><b>Brevo</b>: sends the sign-in emails. EU.</li>
-    <li><b>Cloudflare Turnstile</b>: the check against automated sign-ups on the sign-in form. It looks at signals from your browser and device to tell people from bots, and does not use them for advertising.</li>
-    <li><b>GitHub Pages</b>: hosts the app's files.</li>
+    <li><b>Cloudflare Turnstile</b>: the check against automated sign-ups. It loads only when you start signing in, looks at signals from your browser and device to tell people from bots, and does not use them for advertising.</li>
+    <li><b>GitHub Pages</b>: hosts the app's files (GitHub, United States, under the EU-US Data Privacy Framework).</li>
   </ul>
   <p>These providers keep technical logs for a short time under their own policies.</p>
 

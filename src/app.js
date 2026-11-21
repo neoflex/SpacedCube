@@ -185,8 +185,9 @@
   };
   Supa.load();
 
-  // Check against automated sign-ups (Cloudflare Turnstile). Only used when config.js has a site key;
-  // the script loads when the sign-in form is first shown. Usually invisible; it asks for a click only when unsure.
+  // Check against automated sign-ups (Cloudflare Turnstile). Only used when config.js has a site key.
+  // Nothing is loaded from Cloudflare until the user starts signing in (focuses the email field or sends).
+  // Usually invisible; it asks for a click only when unsure.
   const Captcha = {
     key: String(CONFIG.turnstileSiteKey || ''),
     token: null, widget: null, loading: null, failed: false,
@@ -219,6 +220,12 @@
           'error-callback': () => { this.token = null; this.failed = true; },
         });
       }).catch(() => { this.failed = true; el.textContent = 'The check against automated sign-ups could not load. Check your connection and reload the page.'; });
+    },
+    // Waits up to `ms` for a token (the check takes a moment after it starts).
+    async wait(ms) {
+      this.mount();
+      for (let t = 0; t < ms && !this.token && !this.failed; t += 100) await new Promise((r) => setTimeout(r, 100));
+      return this.token;
     },
     // A token works once: hand it over and start a fresh check for the next attempt.
     take() {
@@ -507,7 +514,7 @@
     if (view === 'practice') app.innerHTML = practiceView();
     else if (view === 'cases') app.innerHTML = casesView();
     else if (view === 'progress') { app.innerHTML = progressView(); fillCharts(); }
-    else { app.innerHTML = optionsView(); Captcha.mount(); }
+    else app.innerHTML = optionsView();
     renderDialog();
   }
 
@@ -951,6 +958,7 @@
     if (e && e.status === 429) return 'Too many emails were requested. Wait a minute and try again.';
     return t ? 'Sign-in failed: ' + t : 'Sign-in failed.';
   }
+  document.addEventListener('focusin', (e) => { if (e.target && e.target.id === 'auth-email') Captcha.mount(); });
   document.addEventListener('submit', async (e) => {
     const f = e.target.closest && e.target.closest('[data-form]');
     if (!f) return;
@@ -962,6 +970,7 @@
         auth.email = $('#auth-email').value.trim();
         let token = null;
         if (Captcha.key) {
+          await Captcha.wait(8000);
           token = Captcha.take();
           if (!token) throw { msg: Captcha.failed ? 'captcha failed' : 'captcha pending' };
         }
@@ -1101,7 +1110,8 @@
   }
 
   // ---------- 3D viewer: plays an algorithm on a cube, slowly ----------
-  const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  // The installable app serves its own copy (no third-party request); the Claude artifact can only use cdnjs.
+  const THREE_URL = window.SPACEDCUBE_THREE_URL || 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
   let threePromise = null;
   function loadThree() {
     if (window.THREE) return Promise.resolve(window.THREE);

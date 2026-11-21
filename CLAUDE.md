@@ -19,6 +19,7 @@ Read README.md first: it describes the features, layout, scheduling rules and sy
 - Sync is whole-state, newest `updatedAt` wins. Local storage is always written first; the page must work fully offline and without any backend.
 - Text in the UI: plain, direct, no em-dash asides. Dialogs are built into the page (no alert/confirm).
 - Accounts are open to anyone (`allowSignup`), protected by Cloudflare Turnstile on the sign-in form. Deploy the site key before Supabase requires the check, never the other way round. Users can delete their account from the app; `src/pwa/privacy.html` must stay accurate when what is stored or who processes it changes.
+- GDPR: the installable app loads nothing from third parties (no CDN, no Google Fonts, no analytics). Fonts and three.js are self-hosted under `src/pwa/`. Turnstile loads only once the user starts signing in. `tests/e2e_pwa.py` enforces this.
 
 ## Two builds
 

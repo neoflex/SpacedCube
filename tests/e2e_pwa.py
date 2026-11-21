@@ -99,6 +99,8 @@ async def main():
         await ctx.route('https://challenges.cloudflare.com/**', lambda r: r.fulfill(content_type='text/javascript', body=FAKE_TURNSTILE))
         pg = await ctx.new_page()
         pg.on('pageerror', lambda e: errs.append(str(e)))
+        hosts = []   # every host the page or its service worker asks for
+        ctx.on('request', lambda r: hosts.append(r.url.split('/')[2]))
         await pg.goto(url)
         check(await pg.locator('link[rel=manifest]').count() == 1, 'manifest link')
         manifest = json.loads((ROOT / 'manifest.webmanifest').read_text())
@@ -106,6 +108,8 @@ async def main():
         await pg.wait_for_function('navigator.serviceWorker.controller !== null || navigator.serviceWorker.ready.then(()=>true)')
         await pg.evaluate('navigator.serviceWorker.ready')
         check(await pg.text_content('#sync') == 'Saved in this browser', 'signed-out status')
+        await pg.evaluate('document.fonts.ready')
+        check(await pg.evaluate("[...document.fonts].some(f => f.family === 'IBM Plex Sans' && f.status === 'loaded') && [...document.fonts].some(f => f.family.includes('Archivo') && f.status === 'loaded')"), 'self-hosted fonts loaded')
 
         # Remote state: OLL set up, case 27 active at level 4, newer than anything local.
         remote = await pg.evaluate("""() => { const s = CubeCore.sets.OLL.freshState(); s.setupDone = true;
@@ -115,6 +119,9 @@ async def main():
         # Sign in with a code. A wrong email and a wrong code show plain messages.
         await pg.click('#tab-options')
         check('New here?' in (await pg.text_content('.account label')), 'sign-up wording')
+        other = sorted({h for h in hosts if not h.startswith('localhost')})
+        check(not other, f'no third-party request before sign-in starts (got {other})')
+        await pg.focus('#auth-email')
         await pg.wait_for_function("document.querySelector('#captcha') && document.querySelector('#captcha').textContent === 'check'")
         await pg.wait_for_timeout(100)
         await pg.fill('#auth-email', 'blocked@example.com'); await pg.click('[data-form=email] button')
@@ -147,6 +154,12 @@ async def main():
         await pg.reload()
         await pg.wait_for_selector('#tab-practice')
         check(await pg.locator('.practice').count() == 1, 'offline reload shows practice')
+        # The 3D replay works offline: three.js comes from the app's own cache.
+        if not await pg.locator('[data-action=watch-current]').count():
+            await pg.click('[data-action=reveal]'); await pg.click('[data-action=reveal-yes]')
+        await pg.click('[data-action=watch-current]')
+        await pg.wait_for_function('!!window.THREE', timeout=10000)
+        await pg.keyboard.press('Escape')
         await pg.wait_for_function("['offline','synced'].includes(document.querySelector('#sync').dataset.s)")
         await ctx.set_offline(False)
 
@@ -187,6 +200,8 @@ async def main():
         check(st['cases']['27']['level'] == 4, 'OLL untouched by PLL import')
         await b.close()
     srv.shutdown()
+    other = sorted({h for h in hosts if not h.startswith('localhost')} - {'challenges.cloudflare.com'})
+    if other: fails.append(f'unexpected hosts {other}')
     print('pwa: ok' if not fails and not errs else f'pwa: FAIL {fails} errors: {errs}')
 
 asyncio.run(main())

@@ -46,7 +46,7 @@ CHROME=/path/to/chrome python3 tests/e2e_smoke.py   # expects "found: [] errors:
 CHROME=/path/to/chrome python3 tests/e2e_pwa.py     # expects "pwa: ok"
 ```
 
-The page loads fonts from Google Fonts and three.js r128 from cdnjs; everything else is inline.
+The installable app loads nothing from other sites: fonts (`src/pwa/fonts/`, latin subset from Fontsource) and three.js r128 (`src/pwa/vendor/`) are served from the app itself, and `tests/e2e_pwa.py` fails if the page contacts any other host before the user starts signing in. Only the Claude artifact build still uses Google Fonts and cdnjs, the only hosts claude.ai allows.
 
 ## How it works
 
@@ -116,6 +116,6 @@ In the artifact: Options > Show backup code, copy it (once for OLL, once for PLL
 ## Credits and licences
 
 - OLL algorithms and numbering as listed on [jperm.net](https://jperm.net/algs/oll); diagrams, scrambles and all code are original.
-- [three.js](https://threejs.org) (MIT), loaded from cdnjs for the 3D viewer.
-- Fonts: Archivo, IBM Plex Sans, IBM Plex Mono (SIL Open Font License) via Google Fonts.
+- [three.js](https://threejs.org) r128 (MIT) for the 3D viewer, served from `vendor/`.
+- Fonts: Archivo, IBM Plex Sans, IBM Plex Mono (SIL Open Font License 1.1), served from `fonts/` with their licences.
 - SpacedCube itself: [MIT](LICENSE). Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md).
