@@ -3,7 +3,7 @@
 const VERSION = '@VERSION@';
 const SHELL = 'shell-' + VERSION;
 const RUNTIME = 'runtime-v1';
-const FILES = ['./', './index.html', './config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
+const FILES = ['./', './index.html', './config.js', './manifest.webmanifest', './privacy.html', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 const THREE = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 const CDN_HOSTS = ['cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 

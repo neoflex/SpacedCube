@@ -27,13 +27,13 @@ It comes in two builds from the same source:
 src/core.js          Cube model, notation, case sets (OLL, PLL), scrambles, scheduler. No DOM; runs in Node.
 src/app.js           UI, persistence, sync, charts, 3D viewer.
 src/index.src.html   Page shell and CSS. Build inlines core.js and app.js into it.
-src/pwa/             PWA files: config.js (Supabase URL and key), sw.js, manifest, icons.py (draws the icons).
-supabase/schema.sql  Table, row-level security and grants for the sync backend.
+src/pwa/             PWA files: config.js (Supabase URL and key, sign-up and Turnstile settings), sw.js, manifest, privacy.html, icons.py (draws the icons).
+supabase/schema.sql  Table, row-level security, grants and delete_my_account() for the sync backend.
 .github/workflows/   pages.yml: build, test and deploy to GitHub Pages.
 build.py             Produces dist/index.html (artifact) and dist/pwa/ (installable app).
 tests/test_core.js   Node checks: every PLL is valid and distinct, mirror pairs match, scrambles land on their case.
 tests/e2e_smoke.py   Playwright: clicks through every view of both sets and fails on unrendered placeholders or page errors.
-tests/e2e_pwa.py     Playwright against a local mock of Supabase: install files, sign-in, pull/push, offline reload, sign-out.
+tests/e2e_pwa.py     Playwright against a local mock of Supabase and Turnstile: install files, sign-in with the check, pull/push, offline reload, sign-out, delete account.
 ```
 
 ## Build and test
@@ -91,16 +91,23 @@ The app is published at **https://spacedcube.app**. `.github/workflows/pages.yml
 
 Without a Supabase project, leave `src/pwa/config.js` empty: the app keeps progress in the browser and the backup code moves it between devices.
 
+### Accounts
+
+Anyone can create an account: the sign-in email creates it on first use (`allowSignup` in `config.js`). Sign-in is by a 6-digit code or a link in the same email. An app installed on an iPhone does not share storage with Safari, so a link opened from the mail app signs in Safari, not the installed app; typing the code works everywhere. A Cloudflare Turnstile check on the sign-in form keeps bots from creating accounts and burning the email quota. Options > Your data > Delete account removes the sign-in and the synced rows; progress in the browser stays. What is stored is described in `src/pwa/privacy.html` (served as `/privacy.html`).
+
+Each state is capped at 256 KB by the database; the app keeps two years of daily chart history so a state stays around 50 KB at most.
+
 ### Setting up sync (once, by the owner of the project)
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. SQL editor: run `supabase/schema.sql`. It creates `progress (user_id, set, state jsonb, updated_at)` with row-level security `user_id = auth.uid()`, a 500 KB limit on `state`, and no access for the anon role.
-3. Authentication > Sign In / Providers: keep Email enabled and turn off **Allow new users to sign up**. Then Authentication > Users > **Add user** (or Invite) for each person who may sync. The app never creates accounts.
-4. Authentication > URL Configuration: set the Site URL to where the app is served, and add the same URL under Redirect URLs.
-5. Authentication > Emails > Magic Link template: add the code, for example `<p>Or type this code in the app: {{ .Token }}</p>`. An app installed on an iPhone does not share storage with Safari, so a link opened from the mail app signs in Safari, not the installed app; typing the code works everywhere.
-6. Project Settings > API: copy the project URL and the anon (public) key into `src/pwa/config.js`, rebuild, deploy.
+1. Create a project at [supabase.com](https://supabase.com). SQL editor: run `supabase/schema.sql` (table, row-level security `user_id = auth.uid()`, size limit, no access for the anon role, `delete_my_account()`).
+2. An email provider with SMTP (this project uses Brevo): authenticate your domain there (DKIM, DMARC), then Authentication > Emails > SMTP Settings. Supabase's built-in sender only mails members of your Supabase team, and on the free plan the email templates can only be edited once custom SMTP is on.
+3. Authentication > Emails: put `{{ .Token }}` in the Magic Link and Confirm signup templates so the email contains the code. Authentication > Providers > Email: 6-digit codes.
+4. Authentication > URL Configuration: Site URL and Redirect URLs set to where the app is served.
+5. Cloudflare dashboard > Turnstile: add a widget for your hostnames (Managed mode). Put its **site key** in `src/pwa/config.js` (`turnstileSiteKey`) and deploy. Then Authentication > Attack Protection: enable CAPTCHA protection, provider Turnstile, with the widget's **secret key**. Do it in this order: once Supabase requires the check, an app without the site key can no longer sign in.
+6. Authentication > Sign In / Providers: allow new users to sign up (only after step 5). Keep `allowSignup: false` in `config.js` instead if accounts should only be created by you (Authentication > Users > Add user).
+7. Project Settings > API: copy the project URL and the publishable key into `src/pwa/config.js`, rebuild, deploy.
 
-The anon key is public by design; the row-level security policy is what keeps each user's rows private. Forks put their own project in `config.js`.
+The publishable key and the Turnstile site key are public by design; the row-level security policy is what keeps each user's rows private, and the Turnstile secret stays in Supabase. Forks put their own project in `config.js`.
 
 ### Moving progress from the Claude artifact
 
@@ -111,4 +118,4 @@ In the artifact: Options > Show backup code, copy it (once for OLL, once for PLL
 - OLL algorithms and numbering as listed on [jperm.net](https://jperm.net/algs/oll); diagrams, scrambles and all code are original.
 - [three.js](https://threejs.org) (MIT), loaded from cdnjs for the 3D viewer.
 - Fonts: Archivo, IBM Plex Sans, IBM Plex Mono (SIL Open Font License) via Google Fonts.
-- Licence for this repository: to be decided before it is made public.
+- SpacedCube itself: [MIT](LICENSE). Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md).

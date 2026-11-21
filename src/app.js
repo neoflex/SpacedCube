@@ -55,8 +55,15 @@
     d.b = b; d.act = act.length;
   }
 
+  const DAILY_KEEP = 730; // days of chart history kept in the state (keeps each synced row small)
+  function trimDaily() {
+    const keys = Object.keys(state.daily || {});
+    if (keys.length <= DAILY_KEEP) return;
+    keys.sort().slice(0, keys.length - DAILY_KEEP).forEach((k) => delete state.daily[k]);
+  }
   function save() {
     snapshotToday();
+    trimDaily();
     state.updatedAt = Date.now();
     saveLocal();
     Sync.schedule(SET);
@@ -156,9 +163,16 @@
       if (p.get('access_token')) { this.store(this.fromTokens(Object.fromEntries(p))); return { ok: true }; }
       return { ok: false, text: 'The sign-in link did not work: ' + (p.get('error_description') || 'unknown error').replace(/\+/g, ' ') + '. Request a new one.' };
     },
-    sendLink(email) {
+    sendLink(email, captchaToken) {
       const redirect = location.origin + location.pathname;
-      return this.req('/auth/v1/otp?redirect_to=' + encodeURIComponent(redirect), { method: 'POST', body: JSON.stringify({ email, create_user: false }) }, false);
+      const body = { email, create_user: !!CONFIG.allowSignup };
+      if (captchaToken) body.gotrue_meta_security = { captcha_token: captchaToken };
+      return this.req('/auth/v1/otp?redirect_to=' + encodeURIComponent(redirect), { method: 'POST', body: JSON.stringify(body) }, false);
+    },
+    // Deletes the sign-in and every synced row (the table cascades). Progress in this browser stays.
+    async deleteAccount() {
+      await this.req('/rest/v1/rpc/delete_my_account', { method: 'POST', body: '{}' });
+      this.store(null);
     },
     async verifyCode(email, token) {
       const t = await this.req('/auth/v1/verify', { method: 'POST', body: JSON.stringify({ type: 'email', email, token }) }, false);
@@ -170,6 +184,50 @@
     },
   };
   Supa.load();
+
+  // Check against automated sign-ups (Cloudflare Turnstile). Only used when config.js has a site key;
+  // the script loads when the sign-in form is first shown. Usually invisible; it asks for a click only when unsure.
+  const Captcha = {
+    key: String(CONFIG.turnstileSiteKey || ''),
+    token: null, widget: null, loading: null, failed: false,
+    load() {
+      if (window.turnstile) return Promise.resolve();
+      if (!this.loading) {
+        this.loading = new Promise((res, rej) => {
+          const sc = document.createElement('script');
+          sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+          sc.async = true;
+          sc.onload = () => (window.turnstile ? res() : rej(new Error('captcha')));
+          sc.onerror = () => { this.loading = null; rej(new Error('captcha')); };
+          document.head.appendChild(sc);
+        });
+      }
+      return this.loading;
+    },
+    mount() {
+      const el = document.getElementById('captcha');
+      if (!this.key || !el || el.dataset.mounted) return;
+      el.dataset.mounted = '1';
+      this.load().then(() => {
+        if (!el.isConnected) return;
+        if (this.widget != null) { try { window.turnstile.remove(this.widget); } catch (e) { /* already gone */ } }
+        this.token = null; this.failed = false;
+        this.widget = window.turnstile.render(el, {
+          sitekey: this.key, appearance: 'interaction-only', action: 'sign-in',
+          callback: (t) => { this.token = t; },
+          'expired-callback': () => { this.token = null; },
+          'error-callback': () => { this.token = null; this.failed = true; },
+        });
+      }).catch(() => { this.failed = true; el.textContent = 'The check against automated sign-ups could not load. Check your connection and reload the page.'; });
+    },
+    // A token works once: hand it over and start a fresh check for the next attempt.
+    take() {
+      const t = this.token;
+      this.token = null;
+      try { if (this.widget != null && window.turnstile) window.turnstile.reset(this.widget); } catch (e) { /* ignore */ }
+      return t;
+    },
+  };
 
   function supabaseBackend() {
     return {
@@ -449,7 +507,7 @@
     if (view === 'practice') app.innerHTML = practiceView();
     else if (view === 'cases') app.innerHTML = casesView();
     else if (view === 'progress') { app.innerHTML = progressView(); fillCharts(); }
-    else app.innerHTML = optionsView();
+    else { app.innerHTML = optionsView(); Captcha.mount(); }
     renderDialog();
   }
 
@@ -853,29 +911,42 @@
 
   // Sign-in for the Supabase backend: magic link, or the 6-digit code from the same email
   // (an installed app on a phone often cannot receive the link, so the code is the reliable path).
-  let auth = { step: 'email', email: '', busy: false, msg: null };
+  let auth = { step: 'email', email: '', busy: false, msg: null, del: false };
+  const PRIVACY = '<a href="privacy.html" style="color:var(--accent)">Privacy</a>';
   function accountView() {
     if (!Sync.backend || Sync.backend.name !== 'supabase') return '';
     const m = auth.msg ? `<p class="msg ${auth.msg.ok ? 'ok' : 'err'}">${esc(auth.msg.text)}</p>` : '';
+    const dis = auth.busy ? 'disabled' : '';
     if (Supa.session) {
       const who = (Supa.session.user && Supa.session.user.email) || 'your account';
+      const del = auth.del
+        ? `<div class="confirm"><b>Delete your account?</b><span>Your sign-in and the progress stored on the sync server are deleted. Progress in this browser stays. This cannot be undone.</span>
+            <div class="row"><button class="btn small danger" data-action="delete-yes" ${dis}>Delete my account</button><button class="btn small" data-action="delete-no">Keep my account</button></div></div>`
+        : '';
       return `<div class="sec account"><p style="margin:0">Signed in as <b>${esc(who)}</b>.</p>
-        <div class="row"><button class="btn small" data-action="sync-now">Sync now</button><button class="btn small" data-action="sign-out">Sign out</button></div>${m}</div>`;
+        <div class="row"><button class="btn small" data-action="sync-now">Sync now</button><button class="btn small" data-action="sign-out">Sign out</button>${auth.del ? '' : '<button class="btn small danger" data-action="delete-ask">Delete account…</button>'}</div>${del}${m}
+        <p class="muted" style="margin:0;font-size:13px">${PRIVACY}</p></div>`;
     }
-    const dis = auth.busy ? 'disabled' : '';
     if (auth.step === 'code') {
       return `<div class="sec account"><p style="margin:0">We sent a sign-in email to <b>${esc(auth.email)}</b>. Open its link on this device, or type the code from the email here.</p>
         <form class="row" data-form="code"><input id="auth-code" class="field" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Code" aria-label="Code from the email">
         <button class="btn small primary" ${dis}>Sign in</button><button type="button" class="btn small" data-action="auth-back">Use another email</button></form>${m}</div>`;
     }
-    return `<div class="sec account"><label for="auth-email">Sign in to sync progress between devices.</label>
+    const intro = CONFIG.allowSignup
+      ? 'Sign in to sync progress between devices. New here? The same email creates your account.'
+      : 'Sign in to sync progress between devices.';
+    return `<div class="sec account"><label for="auth-email">${intro}</label>
       <form class="row" data-form="email"><input id="auth-email" class="field" type="email" autocomplete="email" required placeholder="you@example.com" value="${esc(auth.email)}">
-      <button class="btn small primary" ${dis}>Send sign-in email</button></form>${m}</div>`;
+      <button class="btn small primary" ${dis}>Send sign-in email</button></form>
+      ${Captcha.key ? '<div id="captcha" class="captcha"></div>' : ''}${m}
+      <p class="muted" style="margin:0;font-size:13px">We store your email and your practice progress, nothing else. ${PRIVACY}</p></div>`;
   }
   function authError(e) {
     if (e && (e.code === 'unavailable' || e.code === 'timeout')) return 'The sync server could not be reached. Check your connection and try again.';
     const t = String((e && e.msg) || '');
-    if (/signup|not allowed|not found/i.test(t)) return 'There is no account for this email on this sync server.';
+    if (t === 'captcha pending') return 'The check below the field is not finished yet. Wait a moment and try again.';
+    if (/captcha/i.test(t)) return 'The check against automated sign-ups did not pass. Wait a moment and try again.';
+    if (/signup|not allowed|not found/i.test(t)) return CONFIG.allowSignup ? 'This sync server is not accepting new accounts right now.' : 'There is no account for this email on this sync server.';
     if (/expired|invalid/i.test(t)) return 'That code is wrong or has expired. Request a new email.';
     if (e && e.status === 429) return 'Too many emails were requested. Wait a minute and try again.';
     return t ? 'Sign-in failed: ' + t : 'Sign-in failed.';
@@ -889,13 +960,18 @@
     try {
       if (f.dataset.form === 'email') {
         auth.email = $('#auth-email').value.trim();
-        await Supa.sendLink(auth.email);
+        let token = null;
+        if (Captcha.key) {
+          token = Captcha.take();
+          if (!token) throw { msg: Captcha.failed ? 'captcha failed' : 'captcha pending' };
+        }
+        await Supa.sendLink(auth.email, token);
         auth.step = 'code';
       } else {
         const code = $('#auth-code').value.replace(/\s+/g, '');
         if (!code) throw { msg: 'invalid' };
         await Supa.verifyCode(auth.email, code);
-        auth = { step: 'email', email: '', busy: false, msg: { ok: true, text: 'Signed in.' } };
+        auth = { step: 'email', email: '', busy: false, msg: { ok: true, text: 'Signed in.' }, del: false };
         await Sync.init();
       }
     } catch (err) { auth.msg = { ok: false, text: authError(err) }; }
@@ -1316,9 +1392,23 @@
         recalAsk = false; recalMsg = n ? `${n} case${n > 1 ? 's' : ''} capped at Solid.` : 'No case was above Solid.';
         save(); render(); break;
       }
-      case 'auth-back': auth = { step: 'email', email: auth.email, busy: false, msg: null }; render(); break;
+      case 'auth-back': auth = { step: 'email', email: auth.email, busy: false, msg: null, del: false }; render(); break;
+      case 'delete-ask': auth.del = true; auth.msg = null; render(); break;
+      case 'delete-no': auth.del = false; render(); break;
+      case 'delete-yes':
+        auth.busy = true; render();
+        Supa.deleteAccount().then(() => {
+          auth = { step: 'email', email: '', busy: false, msg: { ok: true, text: 'Your account is deleted. Progress stays in this browser.' }, del: false };
+          Sync.init(); render();
+        }, (err) => {
+          auth.busy = false;
+          auth.msg = { ok: false, text: err && (err.code === 'unavailable' || err.code === 'timeout') ? 'The sync server could not be reached. Nothing was deleted. Try again when you are online.' : 'The account could not be deleted. Sign out, sign in again and retry.' };
+          render();
+        });
+        break;
+      case 'reload': location.reload(); break;
       case 'sign-out':
-        Supa.signOut().then(() => { auth = { step: 'email', email: '', busy: false, msg: { ok: true, text: 'Signed out. Progress stays in this browser.' } }; Sync.init(); render(); });
+        Supa.signOut().then(() => { auth = { step: 'email', email: '', busy: false, msg: { ok: true, text: 'Signed out. Progress stays in this browser.' }, del: false }; Sync.init(); render(); });
         break;
       case 'sync-now': auth.msg = null; Sync.init().then(render); break;
       case 'panel': dataPanel = el.dataset.p; dataMsg = null; render(); break;
@@ -1413,11 +1503,24 @@
 
   function takeRedirect() {
     const r = Supa.configured() ? Supa.takeRedirect() : null;
-    if (r) auth = { step: 'email', email: '', busy: false, msg: r.ok ? { ok: true, text: 'Signed in.' } : { ok: false, text: r.text } };
+    if (r) auth = { step: 'email', email: '', busy: false, msg: r.ok ? { ok: true, text: 'Signed in.' } : { ok: false, text: r.text }, del: false };
     return r;
   }
   takeRedirect();
   window.addEventListener('hashchange', () => { if (takeRedirect()) { render(); Sync.init(); } });
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (document.getElementById('update')) return;
+      const bar = document.createElement('div');
+      bar.id = 'update'; bar.className = 'update'; bar.setAttribute('role', 'status');
+      bar.innerHTML = '<span>A new version of SpacedCube is ready.</span><button class="btn small primary" data-action="reload">Reload</button>';
+      document.body.appendChild(bar);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => {});
+    });
+  }
+
   renderSync();
   render();
   Sync.init();

@@ -336,6 +336,13 @@ textarea {
 }
 .field { flex: 1 1 200px; min-width: 0; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 6px 10px; font-size: 14px; }
 .account { margin-bottom: 12px; }
+.captcha:empty { display: none; }
+.update {
+  position: fixed; z-index: 30; left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100% - 32px);
+  display: flex; gap: 12px; align-items: center; padding: 10px 12px 10px 16px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); font-size: 14px;
+}
 .account .row { margin-top: 2px; }
 .confirm { background: var(--bad-soft); border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
 

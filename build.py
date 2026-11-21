@@ -46,9 +46,9 @@ if pwa.exists():
 pwa.mkdir()
 html = page.replace('<!--@PWA_HEAD@-->', PWA_HEAD)
 (pwa / 'index.html').write_text(html)
-for f in ['config.js', 'manifest.webmanifest']:
+for f in ['config.js', 'manifest.webmanifest', 'privacy.html']:
     shutil.copy(src / 'pwa' / f, pwa / f)
 icons.write_all(pwa)
-version = hashlib.sha256(b''.join((pwa / f).read_bytes() for f in ['index.html', 'manifest.webmanifest'])).hexdigest()[:12]
+version = hashlib.sha256(b''.join((pwa / f).read_bytes() for f in ['index.html', 'manifest.webmanifest', 'privacy.html'])).hexdigest()[:12]
 (pwa / 'sw.js').write_text((src / 'pwa' / 'sw.js').read_text().replace('@VERSION@', version))
 print(f'dist/pwa/: {len(list(pwa.iterdir()))} files, cache version {version}')

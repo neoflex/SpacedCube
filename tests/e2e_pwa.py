@@ -12,6 +12,13 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent / 'dist' / 'pwa'
 UID = '11111111-2222-3333-4444-555555555555'
 db = {}       # (user_id, set) -> row
 log = []      # (method, path)
+captcha_used = set()
+deleted = []
+# Stand-in for Cloudflare Turnstile: issues a fresh token shortly after render and on every reset.
+FAKE_TURNSTILE = '''window.turnstile = { n: 0, cbs: {},
+  render(el, o) { const id = 'w' + (++this.n); this.cbs[id] = o; el.textContent = 'check'; setTimeout(() => o.callback('tok-' + id + '-' + Date.now()), 30); return id; },
+  reset(id) { const o = this.cbs[id]; if (o) setTimeout(() => o.callback('tok-' + id + '-' + Date.now() + Math.random()), 30); },
+  remove(id) { delete this.cbs[id]; } };'''
 
 
 def jwt(sub, email):
@@ -38,7 +45,7 @@ class H(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/config.js':
             port = self.server.server_address[1]
-            js = f"window.CUBE_TRAINER_CONFIG = {{ supabaseUrl: 'http://localhost:{port}/', supabaseAnonKey: 'anon-key' }};".encode()
+            js = f"window.CUBE_TRAINER_CONFIG = {{ supabaseUrl: 'http://localhost:{port}/', supabaseAnonKey: 'anon-key', allowSignup: true, turnstileSiteKey: 'test-site-key' }};".encode()
             self.send_response(200); self.send_header('Content-Type', 'text/javascript'); self.send_header('Content-Length', str(len(js))); self.end_headers(); self.wfile.write(js)
             return
         if self.path.startswith('/rest/v1/progress'):
@@ -53,13 +60,21 @@ class H(SimpleHTTPRequestHandler):
         log.append(('POST', self.path))
         b = self.body()
         if self.path.startswith('/auth/v1/otp'):
-            if b.get('create_user') is not False: return self.send_json(400, {'msg': 'create_user must be false'})
-            if b['email'] != 'me@example.com': return self.send_json(422, {'msg': 'Signups not allowed for otp'})
+            if b.get('create_user') is not True: return self.send_json(400, {'msg': 'create_user must be true'})
+            tok = (b.get('gotrue_meta_security') or {}).get('captcha_token')
+            if not tok or tok in captcha_used: return self.send_json(400, {'msg': 'captcha protection: request disallowed (invalid-input-response)'})
+            captcha_used.add(tok)
+            if b['email'] == 'blocked@example.com': return self.send_json(422, {'msg': 'Signups not allowed for otp'})
             return self.send_json(200, {})
         if self.path == '/auth/v1/verify':
             if b.get('token') != '123456': return self.send_json(403, {'msg': 'Token has expired or is invalid'})
             return self.send_json(200, {'access_token': jwt(UID, b['email']), 'refresh_token': 'r1', 'expires_in': 3600, 'user': {'id': UID, 'email': b['email']}})
         if self.path == '/auth/v1/logout':
+            self.send_response(204); self.end_headers(); return
+        if self.path == '/rest/v1/rpc/delete_my_account':
+            if not self.authed(): return self.send_json(401, {'message': 'no'})
+            for k in [k for k in db if k[0] == UID]: del db[k]
+            deleted.append(UID)
             self.send_response(204); self.end_headers(); return
         if self.path.startswith('/rest/v1/progress'):
             if not self.authed(): return self.send_json(401, {'message': 'no'})
@@ -81,6 +96,7 @@ async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch(executable_path=os.environ.get('CHROME') or None, args=['--no-sandbox'])
         ctx = await b.new_context(viewport={'width': 390, 'height': 844})
+        await ctx.route('https://challenges.cloudflare.com/**', lambda r: r.fulfill(content_type='text/javascript', body=FAKE_TURNSTILE))
         pg = await ctx.new_page()
         pg.on('pageerror', lambda e: errs.append(str(e)))
         await pg.goto(url)
@@ -98,9 +114,13 @@ async def main():
 
         # Sign in with a code. A wrong email and a wrong code show plain messages.
         await pg.click('#tab-options')
-        await pg.fill('#auth-email', 'other@example.com'); await pg.click('[data-form=email] button')
+        check('New here?' in (await pg.text_content('.account label')), 'sign-up wording')
+        await pg.wait_for_function("document.querySelector('#captcha') && document.querySelector('#captcha').textContent === 'check'")
+        await pg.wait_for_timeout(100)
+        await pg.fill('#auth-email', 'blocked@example.com'); await pg.click('[data-form=email] button')
         await pg.wait_for_selector('.account .msg.err')
-        check('no account' in (await pg.text_content('.account .msg.err')), 'unknown email message')
+        check('not accepting new accounts' in (await pg.text_content('.account .msg.err')), 'closed sign-ups message')
+        await pg.wait_for_timeout(100)
         await pg.fill('#auth-email', 'me@example.com'); await pg.click('[data-form=email] button')
         await pg.wait_for_selector('#auth-code')
         await pg.fill('#auth-code', '000000'); await pg.click('[data-form=code] button.primary')
@@ -143,6 +163,19 @@ async def main():
         await pg.goto(url + '#access_token=' + jwt(UID, 'me@example.com') + '&refresh_token=r2&expires_in=3600&token_type=bearer&type=magiclink')
         await pg.wait_for_function("document.querySelector('#sync').dataset.s === 'synced'")
         check('access_token' not in pg.url, 'fragment cleared')
+
+        # Delete account: server rows go, local progress stays.
+        await pg.click('#tab-options')
+        await pg.click('[data-action=delete-ask]')
+        await pg.click('[data-action=delete-yes]')
+        await pg.wait_for_selector('text=Your account is deleted')
+        check(deleted == [UID] and not any(k[0] == UID for k in db), 'account deleted on the server')
+        st = await pg.evaluate("JSON.parse(localStorage.getItem('oll-trainer-v1'))")
+        check(st['cases']['27']['level'] == 4, 'local progress kept after delete')
+        check(await pg.locator('a[href="privacy.html"]').count() == 1, 'privacy link')
+        r = await pg.request.get(url + 'privacy.html')
+        check(r.ok and 'Delete account' in await r.text(), 'privacy page served')
+
 
         # Backup code of the other set restores into that set.
         pll = await pg.evaluate("""() => { const s = CubeCore.sets.PLL.freshState(); s.setupDone = true; s.cases.T.active = true; s.cases.T.level = 2; return JSON.stringify(s); }""")

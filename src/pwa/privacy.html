@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy · SpacedCube</title>
+<meta name="description" content="What SpacedCube stores, where, and how to delete it.">
+<link rel="icon" href="icon-192.png" type="image/png">
+<style>
+:root {
+  --bg: #eceef2; --surface: #ffffff; --ink: #151920; --muted: #5a6271; --line: #dadee5; --accent: #1d5bd0;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1216; --surface: #171b21; --ink: #e7eaef; --muted: #99a2b0; --line: #2a3039; --accent: #79a3ff; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.6 "IBM Plex Sans", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+main { max-width: 720px; margin: 0 auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 17px; margin: 24px 0 4px; }
+p, li { max-width: 68ch; }
+ul { padding-left: 20px; }
+a { color: var(--accent); }
+.muted { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <p><a href="./">Back to SpacedCube</a></p>
+  <h1>Privacy</h1>
+  <p class="muted">Last updated 21 November 2026</p>
+
+  <p>SpacedCube is a free trainer for the 3x3 cube, run as a personal open-source project. It has no ads, no analytics and no tracking cookies.</p>
+
+  <h2>Without an account</h2>
+  <p>Your progress is stored only in your browser (local storage). It never leaves your device unless you sign in. Loading the page sends the usual technical data (such as your IP address) to the services that deliver it: GitHub Pages (the app's files), Google Fonts (the fonts) and cdnjs by Cloudflare (the 3D viewer library).</p>
+
+  <h2>With an account</h2>
+  <p>If you sign in to sync between devices, we store:</p>
+  <ul>
+    <li>your email address, and the dates you created the account and last signed in;</li>
+    <li>your practice progress: which cases you practise, their levels and recent results, your settings, custom algorithms and daily totals for the charts.</li>
+  </ul>
+  <p>We use them only to sign you in and keep your progress the same on your devices. We do not sell or share them, and we do not send you anything except sign-in emails you request.</p>
+
+  <h2>Who processes the data</h2>
+  <ul>
+    <li><b>Supabase</b>: database and sign-in. Servers in Ireland (EU).</li>
+    <li><b>Brevo</b>: sends the sign-in emails. EU.</li>
+    <li><b>Cloudflare Turnstile</b>: the check against automated sign-ups on the sign-in form. It looks at signals from your browser and device to tell people from bots, and does not use them for advertising.</li>
+    <li><b>GitHub Pages</b>: hosts the app's files.</li>
+  </ul>
+  <p>These providers keep technical logs for a short time under their own policies.</p>
+
+  <h2>Legal basis</h2>
+  <p>Storing your email and progress is necessary to provide the sync you ask for (GDPR article 6(1)(b)). The check against automated sign-ups is in the legitimate interest of keeping the service working (article 6(1)(f)).</p>
+
+  <h2>How long</h2>
+  <p>Until you delete your account. You can do that yourself in the app: Options, Your data, Delete account. Your sign-in and everything stored on the server are deleted at once. The copy in your browser stays until you clear it or use Reset all progress.</p>
+
+  <h2>Your rights</h2>
+  <p>You can see your data (Options, Show backup code), correct it, take it with you (the backup code), delete it (Delete account) and object to its use. For anything else, or to ask what we hold about you, write to the address below. You can also complain to the data protection authority where you live.</p>
+
+  <h2>Contact</h2>
+  <p><a href="mailto:privacy@spacedcube.app">privacy@spacedcube.app</a></p>
+</main>
+</body>
+</html>
