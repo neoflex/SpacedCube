@@ -72,11 +72,124 @@
     render(); window.scrollTo(0, 0);
   }
 
-  // ---------- Sync to the viewer's own account (optional) ----------
+  // ---------- Sync (optional) ----------
+  // Backends: the Claude artifact database (on claude.ai), else Supabase (if configured), else none.
+  // Whatever the backend, local storage is written first and the newest updatedAt wins.
   const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code: 'timeout' }), ms))]);
   const getState = (n) => (n === SET ? state : ctx[n].state);
+  const CONFIG = (typeof window !== 'undefined' && window.CUBE_TRAINER_CONFIG) || {};
+
+  // Claude artifact runtime: one document per set under the viewer's own id.
+  function claudeBackend() {
+    const refs = {};
+    return {
+      name: 'claude', account: 'your Claude account',
+      async connect() {
+        const [user, db] = await Promise.all([withTimeout(window.claude.use('user'), 12000), withTimeout(window.claude.use('db'), 12000)]);
+        if (!user || !db) return false;
+        const uid = await withTimeout(user.id(), 10000);
+        if (!uid) return false;
+        for (const n of Object.keys(K.sets)) refs[n] = db.doc('data/users/' + uid + '/' + n.toLowerCase() + '-trainer');
+        return true;
+      },
+      async get(n) {
+        const snap = await withTimeout(refs[n].get(), 10000);
+        if (!snap.exists) return null;
+        const d = snap.data() || {};
+        try { return JSON.parse(d.state); } catch (e) { return null; }
+      },
+      async put(n, st) {
+        await withTimeout(refs[n].set({ v: 1, updatedAt: st.updatedAt || Date.now(), state: JSON.stringify(st) }), 10000);
+      },
+      transient: (e) => { const c = e && e.code; return c === 'unavailable' || c === 'resource_exhausted' || c === 'timeout'; },
+    };
+  }
+
+  // Supabase over plain fetch (auth + PostgREST), so nothing extra has to load and the page works offline.
+  const AUTH_KEY = 'll-trainer-auth';
+  const Supa = {
+    url: String(CONFIG.supabaseUrl || '').replace(/\/+$/, ''),
+    key: String(CONFIG.supabaseAnonKey || ''),
+    session: null,
+    configured() { return !!(this.url && this.key); },
+    load() { try { this.session = JSON.parse(localStorage.getItem(AUTH_KEY)) || null; } catch (e) { this.session = null; } },
+    store(s) {
+      this.session = s;
+      try { if (s) localStorage.setItem(AUTH_KEY, JSON.stringify(s)); else localStorage.removeItem(AUTH_KEY); } catch (e) { /* storage blocked */ }
+    },
+    fromTokens(t) {
+      let user = t.user || null;
+      if (!user) { try { const p = JSON.parse(atob(t.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); user = { id: p.sub, email: p.email }; } catch (e) { user = null; } }
+      return { access_token: t.access_token, refresh_token: t.refresh_token, expires_at: Date.now() + (Number(t.expires_in) || 3600) * 1000, user: user && { id: user.id, email: user.email } };
+    },
+    async req(path, opt = {}, auth = true) {
+      const headers = { apikey: this.key, 'Content-Type': 'application/json', ...(opt.headers || {}) };
+      if (auth) {
+        if (!this.session) throw { code: 'signed_out' };
+        if (Date.now() > this.session.expires_at - 60000) await this.refresh();
+        headers.Authorization = 'Bearer ' + this.session.access_token;
+      }
+      let res;
+      try { res = await withTimeout(fetch(this.url + path, { ...opt, headers }), 15000); }
+      catch (e) { throw { code: e && e.code === 'timeout' ? 'timeout' : 'unavailable' }; }
+      if (res.status === 401 && auth && !opt.retried) { await this.refresh(); return this.req(path, { ...opt, retried: true }, auth); }
+      let body = null;
+      const text = await res.text();
+      try { body = text ? JSON.parse(text) : null; } catch (e) { body = null; }
+      if (!res.ok) throw { code: res.status >= 500 || res.status === 429 ? 'unavailable' : 'http', status: res.status, msg: (body && (body.msg || body.message || body.error_description || body.error)) || '' };
+      return body;
+    },
+    async refresh() {
+      const rt = this.session && this.session.refresh_token;
+      if (!rt) { this.store(null); throw { code: 'signed_out' }; }
+      let t;
+      try { t = await this.req('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: JSON.stringify({ refresh_token: rt }) }, false); }
+      catch (e) { if (e.code === 'http') { this.store(null); throw { code: 'signed_out' }; } throw e; }
+      this.store(this.fromTokens(t));
+    },
+    // A magic link lands back here with tokens (or an error) in the URL fragment.
+    takeRedirect() {
+      const h = location.hash || '';
+      if (!/access_token=|error_description=/.test(h)) return null;
+      const p = new URLSearchParams(h.slice(1));
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignore */ }
+      if (p.get('access_token')) { this.store(this.fromTokens(Object.fromEntries(p))); return { ok: true }; }
+      return { ok: false, text: 'The sign-in link did not work: ' + (p.get('error_description') || 'unknown error').replace(/\+/g, ' ') + '. Request a new one.' };
+    },
+    sendLink(email) {
+      const redirect = location.origin + location.pathname;
+      return this.req('/auth/v1/otp?redirect_to=' + encodeURIComponent(redirect), { method: 'POST', body: JSON.stringify({ email, create_user: false }) }, false);
+    },
+    async verifyCode(email, token) {
+      const t = await this.req('/auth/v1/verify', { method: 'POST', body: JSON.stringify({ type: 'email', email, token }) }, false);
+      this.store(this.fromTokens(t));
+    },
+    async signOut() {
+      try { if (this.session) await this.req('/auth/v1/logout', { method: 'POST' }); } catch (e) { /* signing out locally is enough */ }
+      this.store(null);
+    },
+  };
+  Supa.load();
+
+  function supabaseBackend() {
+    return {
+      name: 'supabase', account: 'your account',
+      async connect() { return !!Supa.session; },
+      async get(n) {
+        const rows = await Supa.req('/rest/v1/progress?select=state&set=eq.' + encodeURIComponent(n), { method: 'GET' });
+        return rows && rows[0] ? rows[0].state : null;
+      },
+      async put(n, st) {
+        const row = { user_id: Supa.session.user.id, set: n, state: st, updated_at: new Date(st.updatedAt || Date.now()).toISOString() };
+        await Supa.req('/rest/v1/progress?on_conflict=user_id,set', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(row) });
+      },
+      transient: (e) => { const c = e && e.code; return c === 'unavailable' || c === 'timeout'; },
+    };
+  }
+
   const Sync = {
-    status: 'local', refs: {}, writing: {}, again: {}, timer: {}, lastInit: 0,
+    // status: local | signedout | connecting | synced | offline
+    status: 'local', backend: null, live: false, writing: {}, again: {}, timer: {}, lastInit: 0,
     set(st) {
       this.status = st; renderSync();
       const p = document.getElementById('sync-text');
@@ -84,77 +197,72 @@
     },
     async init() {
       this.lastInit = Date.now();
-      if (!(window.claude && typeof window.claude.use === 'function')) { this.set('local'); return; }
+      this.live = false;
+      if (window.claude && typeof window.claude.use === 'function') this.backend = claudeBackend();
+      else if (Supa.configured()) this.backend = supabaseBackend();
+      else { this.backend = null; this.set('local'); return; }
+      if (this.backend.name === 'supabase' && !Supa.session) { this.set('signedout'); return; }
       this.set('connecting');
       try {
-        const [user, db] = await Promise.all([withTimeout(window.claude.use('user'), 12000), withTimeout(window.claude.use('db'), 12000)]);
-        if (!user || !db) { this.set('local'); return; }
-        const uid = await withTimeout(user.id(), 10000);
-        if (!uid) { this.set('local'); return; }
-        for (const n of Object.keys(K.sets)) this.refs[n] = db.doc('data/users/' + uid + '/' + n.toLowerCase() + '-trainer');
+        if (!(await this.backend.connect())) { this.set(this.backend.name === 'supabase' ? 'signedout' : 'local'); return; }
+        this.live = true;
         await this.pullAll();
-      } catch (e) {
-        this.refs = {};
-        this.set(e && e.code === 'timeout' ? 'offline' : 'local');
-      }
+      } catch (e) { this.fail(e); }
     },
-    connected() { return Object.keys(this.refs).length > 0; },
-    async pullAll() { for (const n of Object.keys(this.refs)) await this.pull(n); this.set('synced'); },
+    fail(e) {
+      if (this.backend && this.backend.transient(e)) { this.set('offline'); return; }
+      this.live = false;
+      if (e && e.code === 'signed_out') { this.set('signedout'); render(); return; }
+      if (this.backend && this.backend.name === 'supabase') { this.set('offline'); return; }
+      this.backend = null; this.set('local');
+    },
+    connected() { return this.live; },
+    async pullAll() { for (const n of Object.keys(K.sets)) await this.pull(n); this.set('synced'); },
     async pull(n) {
-      const ref = this.refs[n];
-      if (!ref) return;
-      const snap = await withTimeout(ref.get(), 10000);
+      const remote = await this.backend.get(n);
       const local = getState(n);
-      if (snap.exists) {
-        const d = snap.data() || {};
-        let remote = null;
-        try { remote = JSON.parse(d.state); } catch (e) { remote = null; }
-        if (remote && (remote.updatedAt || 0) > (local.updatedAt || 0)) {
-          const st = K.sets[n].normalize(remote);
-          saveLocalFor(n, st);
-          if (n === SET) {
-            state = st;
-            if (current && !state.cases[current.id].active) current = null;
-            render();
-          } else {
-            ctx[n].state = st; ctx[n].current = null; ctx[n].undo = null;
-          }
-        } else if ((local.updatedAt || 0) > (remote ? remote.updatedAt || 0 : 0)) {
-          this.push(n);
+      if (remote && typeof remote === 'object' && (remote.updatedAt || 0) > (local.updatedAt || 0)) {
+        const st = K.sets[n].normalize(remote);
+        saveLocalFor(n, st);
+        if (n === SET) {
+          state = st;
+          if (current && !state.cases[current.id].active) current = null;
+          if (st.setupDone && !local.setupDone && view === 'cases') view = 'practice';
+          render();
+        } else {
+          ctx[n].state = st; ctx[n].current = null; ctx[n].undo = null;
+          if (st.setupDone) ctx[n].view = 'practice';
         }
-      } else if (local.updatedAt) {
-        this.push(n);
+      } else if ((local.updatedAt || 0) > (remote ? remote.updatedAt || 0 : 0)) {
+        await this.push(n);
       }
     },
     schedule(n) {
-      if (!this.refs[n]) return;
+      if (!this.live) return;
       clearTimeout(this.timer[n]);
       this.timer[n] = setTimeout(() => this.push(n), 1500);
     },
     async push(n) {
-      const ref = this.refs[n];
-      if (!ref) return;
+      if (!this.live) return;
       if (this.writing[n]) { this.again[n] = true; return; }
       this.writing[n] = true;
       try {
-        const st = getState(n);
-        await ref.set({ v: 1, updatedAt: st.updatedAt || Date.now(), state: JSON.stringify(st) });
+        await this.backend.put(n, getState(n));
         this.set('synced');
       } catch (e) {
-        const code = e && e.code;
-        if (code === 'unavailable' || code === 'resource_exhausted' || code === 'timeout') this.set('offline');
-        else { this.refs = {}; this.set('local'); }
+        this.fail(e);
       } finally {
         this.writing[n] = false;
         if (this.again[n]) { this.again[n] = false; this.push(n); }
       }
     },
+    resume() {
+      if (this.live) this.pullAll().catch((e) => this.fail(e));
+      else if (Date.now() - this.lastInit > 60000 || this.status === 'offline') this.init();
+    },
   };
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') return;
-    if (Sync.connected()) Sync.pullAll().catch(() => Sync.set('offline'));
-    else if (Date.now() - Sync.lastInit > 60000) Sync.init();
-  });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Sync.resume(); });
+  window.addEventListener('online', () => Sync.resume());
 
   // ---------- Helpers ----------
   const CHECK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -347,7 +455,7 @@
 
   function renderSync() {
     const el = $('#sync');
-    const txt = { local: storageOK ? 'Saved in this browser' : 'Not saved', connecting: 'Connecting…', synced: 'Synced to your account', offline: 'Sync paused' }[Sync.status];
+    const txt = { local: storageOK ? 'Saved in this browser' : 'Not saved', signedout: storageOK ? 'Saved in this browser' : 'Not saved', connecting: 'Connecting…', synced: 'Synced', offline: 'Sync paused' }[Sync.status];
     el.dataset.s = Sync.status;
     el.innerHTML = `<span>${txt}</span>`;
     el.title = txt;
@@ -731,14 +839,70 @@
   }
 
   function syncText() {
+    const acct = Sync.backend ? Sync.backend.account : 'your account';
+    const local = storageOK ? 'Progress is saved in this browser only. Use a backup code to move it to another device.'
+      : 'This browser is blocking storage, so progress lasts only while the page is open. Copy a backup code before leaving.';
     return {
-      local: storageOK ? 'Progress is saved in this browser only. Use a backup code to move it to another device.'
-        : 'This browser is blocking storage, so progress lasts only while the page is open. Copy a backup code before leaving.',
-      connecting: 'Connecting to your Claude account to sync progress…',
-      synced: 'Progress is saved in this browser and synced to your Claude account, so it follows you to other devices where you open this page.',
-      offline: 'Your account could not be reached just now. Progress is saved in this browser and syncs again when the connection returns.',
+      local,
+      signedout: (storageOK ? 'Progress is saved in this browser.' : 'This browser is blocking storage, so progress lasts only while the page is open.') + ' Sign in to sync it to your other devices.',
+      connecting: `Connecting to ${acct} to sync progress…`,
+      synced: `Progress is saved in this browser and synced to ${acct}, so it follows you to other devices where you open this page.`,
+      offline: `${acct.charAt(0).toUpperCase() + acct.slice(1)} could not be reached just now. Progress is saved in this browser and syncs again when the connection returns.`,
     }[Sync.status];
   }
+
+  // Sign-in for the Supabase backend: magic link, or the 6-digit code from the same email
+  // (an installed app on a phone often cannot receive the link, so the code is the reliable path).
+  let auth = { step: 'email', email: '', busy: false, msg: null };
+  function accountView() {
+    if (!Sync.backend || Sync.backend.name !== 'supabase') return '';
+    const m = auth.msg ? `<p class="msg ${auth.msg.ok ? 'ok' : 'err'}">${esc(auth.msg.text)}</p>` : '';
+    if (Supa.session) {
+      const who = (Supa.session.user && Supa.session.user.email) || 'your account';
+      return `<div class="sec account"><p style="margin:0">Signed in as <b>${esc(who)}</b>.</p>
+        <div class="row"><button class="btn small" data-action="sync-now">Sync now</button><button class="btn small" data-action="sign-out">Sign out</button></div>${m}</div>`;
+    }
+    const dis = auth.busy ? 'disabled' : '';
+    if (auth.step === 'code') {
+      return `<div class="sec account"><p style="margin:0">We sent a sign-in email to <b>${esc(auth.email)}</b>. Open its link on this device, or type the code from the email here.</p>
+        <form class="row" data-form="code"><input id="auth-code" class="field" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Code" aria-label="Code from the email">
+        <button class="btn small primary" ${dis}>Sign in</button><button type="button" class="btn small" data-action="auth-back">Use another email</button></form>${m}</div>`;
+    }
+    return `<div class="sec account"><label for="auth-email">Sign in to sync progress between devices.</label>
+      <form class="row" data-form="email"><input id="auth-email" class="field" type="email" autocomplete="email" required placeholder="you@example.com" value="${esc(auth.email)}">
+      <button class="btn small primary" ${dis}>Send sign-in email</button></form>${m}</div>`;
+  }
+  function authError(e) {
+    if (e && (e.code === 'unavailable' || e.code === 'timeout')) return 'The sync server could not be reached. Check your connection and try again.';
+    const t = String((e && e.msg) || '');
+    if (/signup|not allowed|not found/i.test(t)) return 'There is no account for this email on this sync server.';
+    if (/expired|invalid/i.test(t)) return 'That code is wrong or has expired. Request a new email.';
+    if (e && e.status === 429) return 'Too many emails were requested. Wait a minute and try again.';
+    return t ? 'Sign-in failed: ' + t : 'Sign-in failed.';
+  }
+  document.addEventListener('submit', async (e) => {
+    const f = e.target.closest && e.target.closest('[data-form]');
+    if (!f) return;
+    e.preventDefault();
+    if (auth.busy) return;
+    auth.busy = true; auth.msg = null;
+    try {
+      if (f.dataset.form === 'email') {
+        auth.email = $('#auth-email').value.trim();
+        await Supa.sendLink(auth.email);
+        auth.step = 'code';
+      } else {
+        const code = $('#auth-code').value.replace(/\s+/g, '');
+        if (!code) throw { msg: 'invalid' };
+        await Supa.verifyCode(auth.email, code);
+        auth = { step: 'email', email: '', busy: false, msg: { ok: true, text: 'Signed in.' } };
+        await Sync.init();
+      }
+    } catch (err) { auth.msg = { ok: false, text: authError(err) }; }
+    auth.busy = false;
+    render();
+    const next = $('#auth-code'); if (next && auth.step === 'code' && !auth.msg) next.focus();
+  });
 
   function optionsView() {
     const s = state.settings;
@@ -805,6 +969,7 @@
       <div class="card">
         <h2>Your data</h2>
         <p class="muted" id="sync-text" style="margin:8px 0 12px">${esc(syncText())}</p>
+        ${accountView()}
         <div class="row" style="margin-bottom:12px">
           <button class="btn small" data-action="panel" data-p="export">Show backup code</button>
           <button class="btn small" data-action="panel" data-p="import">Restore from backup</button>
@@ -1151,6 +1316,11 @@
         recalAsk = false; recalMsg = n ? `${n} case${n > 1 ? 's' : ''} capped at Solid.` : 'No case was above Solid.';
         save(); render(); break;
       }
+      case 'auth-back': auth = { step: 'email', email: auth.email, busy: false, msg: null }; render(); break;
+      case 'sign-out':
+        Supa.signOut().then(() => { auth = { step: 'email', email: '', busy: false, msg: { ok: true, text: 'Signed out. Progress stays in this browser.' } }; Sync.init(); render(); });
+        break;
+      case 'sync-now': auth.msg = null; Sync.init().then(render); break;
       case 'panel': dataPanel = el.dataset.p; dataMsg = null; render(); break;
       case 'panel-close': dataPanel = null; dataMsg = null; render(); break;
       case 'copy': {
@@ -1164,9 +1334,15 @@
         const raw = $('#backup-in').value.trim();
         try {
           const obj = JSON.parse(raw);
-          if (!obj || typeof obj !== 'object' || !obj.cases) throw new Error('bad');
+          if (!obj || typeof obj !== 'object' || !obj.cases || typeof obj.cases !== 'object') throw new Error('bad');
+          // A backup code holds one set. Restore it into the set its case ids belong to.
+          const ids = Object.keys(obj.cases);
+          const owner = Object.keys(K.sets).find((n) => ids.length && ids.every((id) => K.sets[n].CASES[id]));
+          if (!owner) throw new Error('bad');
+          if (owner !== SET) switchSet(owner);
           state = C.normalize(obj); state.setupDone = true; current = null; undo = null; lastResult = null;
-          save(); dataPanel = null; dataMsg = { ok: true, text: 'Progress restored.' };
+          save(); view = 'options'; dataPanel = null;
+          dataMsg = { ok: true, text: `${C.name} progress restored.` };
         } catch (err) { dataMsg = { ok: false, text: 'That is not a valid backup code. Paste the whole code, starting with {.' }; }
         render(); break;
       }
@@ -1235,6 +1411,13 @@
     else if (e.key === 'ArrowLeft') { e.preventDefault(); gradeCurrent(false); }
   });
 
+  function takeRedirect() {
+    const r = Supa.configured() ? Supa.takeRedirect() : null;
+    if (r) auth = { step: 'email', email: '', busy: false, msg: r.ok ? { ok: true, text: 'Signed in.' } : { ok: false, text: r.text } };
+    return r;
+  }
+  takeRedirect();
+  window.addEventListener('hashchange', () => { if (takeRedirect()) { render(); Sync.init(); } });
   renderSync();
   render();
   Sync.init();
