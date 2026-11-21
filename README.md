@@ -1,4 +1,4 @@
-# Cube Trainer
+# SpacedCube
 
 A spaced-practice trainer for the last layer of the 3x3 cube: all 57 **OLL** cases and all 21 **PLL** cases.
 
@@ -29,6 +29,7 @@ src/app.js           UI, persistence, sync, charts, 3D viewer.
 src/index.src.html   Page shell and CSS. Build inlines core.js and app.js into it.
 src/pwa/             PWA files: config.js (Supabase URL and key), sw.js, manifest, icons.py (draws the icons).
 supabase/schema.sql  Table, row-level security and grants for the sync backend.
+.github/workflows/   pages.yml: build, test and deploy to GitHub Pages.
 build.py             Produces dist/index.html (artifact) and dist/pwa/ (installable app).
 tests/test_core.js   Node checks: every PLL is valid and distinct, mirror pairs match, scrambles land on their case.
 tests/e2e_smoke.py   Playwright: clicks through every view of both sets and fails on unrendered placeholders or page errors.
@@ -86,7 +87,7 @@ The Supabase client is a few plain `fetch` calls (auth and PostgREST), so nothin
 
 ## Installable app and Supabase sync
 
-`python3 build.py` writes the app to `dist/pwa/`. Serve that folder over HTTPS from any static host (GitHub Pages, Netlify, Cloudflare Pages...). It caches itself on the first visit, including three.js and the fonts, and then works offline. On a phone use "Add to Home Screen" (iOS Safari) or "Install app" (Android Chrome); it opens full screen and respects the notch and home indicator.
+The app is published at **https://spacedcube.app**. `.github/workflows/pages.yml` builds it, runs all tests and deploys `dist/pwa/` to GitHub Pages on every push to `main` (pull requests run the tests only). Forks can serve `dist/pwa/` over HTTPS from any static host. It caches itself on the first visit, including three.js and the fonts, and then works offline. On a phone use "Add to Home Screen" (iOS Safari) or "Install app" (Android Chrome); it opens full screen and respects the notch and home indicator.
 
 Without a Supabase project, leave `src/pwa/config.js` empty: the app keeps progress in the browser and the backup code moves it between devices.
 

@@ -30,7 +30,7 @@ PWA_HEAD = '''<meta name="theme-color" content="#eceef2" media="(prefers-color-s
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="LL Trainer">
+<meta name="apple-mobile-web-app-title" content="SpacedCube">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">

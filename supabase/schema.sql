@@ -1,4 +1,4 @@
--- Cube Trainer sync table. Run once in the Supabase SQL editor of your project.
+-- SpacedCube sync table. Run once in the Supabase SQL editor of your project.
 -- One row per user and set (OLL, PLL); the whole state is stored and the newest updatedAt wins (decided by the app).
 
 create table if not exists public.progress (

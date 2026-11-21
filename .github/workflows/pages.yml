@@ -1,0 +1,56 @@
+# Builds the app, runs the tests, and publishes dist/pwa/ to GitHub Pages (https://spacedcube.app).
+# Pull requests run the tests only.
+name: Build, test and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build
+        run: python3 build.py
+      - name: Core tests
+        run: node tests/test_core.js | tee core.log && tail -1 core.log | grep -q 'fail 0$'
+      - name: Install browser
+        run: pip install playwright && python -m playwright install --with-deps chromium
+      - name: Smoke test
+        run: python3 tests/e2e_smoke.py | tee smoke.log && grep -q '^found: \[\] errors: \[\]$' smoke.log
+      - name: PWA and sync test
+        run: python3 tests/e2e_pwa.py | tee pwa.log && grep -q '^pwa: ok$' pwa.log
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          path: dist/pwa
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,6 +1,6 @@
 {
-  "name": "Last Layer Trainer",
-  "short_name": "LL Trainer",
+  "name": "SpacedCube",
+  "short_name": "SpacedCube",
   "description": "Spaced practice for OLL and PLL on the 3x3 cube.",
   "id": "./",
   "start_url": "./",
