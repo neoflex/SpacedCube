@@ -189,8 +189,8 @@ export function practiceView() {
   return `${title}<div class="practice">
     <section class="card trainer" aria-labelledby="scramble-h">
       <div class="row between"><h2 class="eyebrow" id="scramble-h">Scramble</h2>
-        <span class="row" style="gap:10px"><span class="muted" style="font-size:13px">Attempt ${state.rep + 1}</span><span class="duepill ${due ? 'on' : ''}">${status.text}</span></span></div>
-      ${!due && !current.isNew ? `<div class="newflag">Nothing is due right now${status.wait ? `: the next case comes due ${status.wait}` : ''}. Extra practice keeps you sharp, but levels only rise after a gap, so this is a good moment to stop.</div>` : ''}
+        <span class="row" style="gap:10px"><span class="muted" style="font-size:13px">Attempt ${state.rep + 1}</span><span class="duepill ${due ? 'on' : ''}" data-due="${due}">${status.text}</span></span></div>
+      ${!due && !current.isNew ? `<div class="newflag">Nothing is due right now${status.wait ? `: the next case comes due <span class="due-wait">${status.wait}</span>` : ''}. Extra practice keeps you sharp, but levels only rise after a gap, so this is a good moment to stop.</div>` : ''}
       ${current.isNew ? `<div class="newflag"><b>New case: ${esc(label(id))}.</b> Learn the algorithm below, then scramble and try it.</div>` : ''}
       <p class="scramble">${moves}</p>
       <p class="hint">Hold yellow on top and green in front, apply the scramble to a solved cube, then solve the ${C.kind === 'pll' ? 'permutation of the last layer. The top face is already solved' : 'orientation of the last layer'}.</p>

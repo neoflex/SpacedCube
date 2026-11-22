@@ -83,6 +83,29 @@ async def main():
         await pg.wait_for_selector('#app > *')
         check(await pg.evaluate("document.body.classList.contains('no-shortcuts')"), 'shortcut setting kept')
         errs.extend('CSP: ' + v for v in await csp_violations(pg))
+
+        # A case that comes due while the practice screen is open shows up in the header badge and
+        # in the practice screen's pill at the same time (fake clock: no real waiting).
+        ctx2 = await b.new_context(service_workers='block', reduced_motion='reduce')
+        pg2 = await ctx2.new_page()
+        pg2.on('pageerror', lambda e: errs.append(str(e)))
+        await pg2.clock.install()
+        await pg2.goto(url)
+        await pg2.evaluate("""async () => {
+            const { sets } = await import('./js/core/index.js');
+            const s = sets.OLL.freshState(), now = Date.now();
+            s.setupDone = true; s.settings.autoIntro = false;
+            Object.assign(s.cases['27'], { active: true, level: 2, n: 3, ok: 3, last: 0, lastTs: now - 8 * 60000 });
+            s.updatedAt = now;
+            localStorage.setItem('oll-trainer-v1', JSON.stringify(s));
+        }""")
+        await pg2.reload()
+        await pg2.wait_for_selector('.duepill')
+        check(await pg2.text_content('.duepill') == 'Next due in 2 min', 'pill before: ' + await pg2.text_content('.duepill'))
+        check(await pg2.locator('.tab[data-set="OLL"] .due-count').count() == 0, 'no badge before')
+        await pg2.clock.fast_forward('03:00')
+        check(await pg2.text_content('.duepill') == '1 due now', 'pill after: ' + await pg2.text_content('.duepill'))
+        check((await pg2.text_content('.tab[data-set="OLL"] .due-count') or '').startswith('1'), 'badge after')
         await b.close()
     srv.shutdown()
     print(f'[{BROWSER}]', end=' ')

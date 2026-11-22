@@ -21,7 +21,7 @@ listen();
 listenKeys();
 listenCharts();
 listenAccount();
-listenDue(() => { if (S.view === 'practice' && S.dialogId == null) render(); });
+listenDue(render);
 
 takeRedirect();
 window.addEventListener('hashchange', () => { if (takeRedirect()) { render(); Sync.init(); } });

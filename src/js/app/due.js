@@ -3,7 +3,7 @@
 // Due counts change with time alone, so they refresh every minute and when the app comes back.
 import * as K from '../core/index.js';
 import { S, getState } from './state.js';
-import { $$ } from './util.js';
+import { $, $$ } from './util.js';
 
 const TITLE_RE = /^\(\d+\) /;
 
@@ -49,13 +49,23 @@ export function dueStatus() {
   return { due: 0, text: wait ? `Next due ${wait}` : 'Nothing due', wait };
 }
 
+// Brings the practice screen in line with the clock: compared with what is on screen, not with the
+// last check, so a case that came due since the screen was drawn always shows up.
+export function refreshPractice(rerenderPractice) {
+  const pill = $('.duepill');
+  if (!pill) return;
+  const st = dueStatus();
+  if (st.due !== Number(pill.dataset.due)) { rerenderPractice(); return; }
+  // Same count: only the "next due" wording moves on with time.
+  pill.textContent = st.text;
+  const wait = $('.due-wait');
+  if (wait) wait.textContent = st.wait;
+}
+
 export function listenDue(rerenderPractice) {
-  let last = '';
   const tick = () => {
     renderDue();
-    // Re-draw the practice screen only when its status line would change (not while typing elsewhere).
-    const now = S.view === 'practice' ? dueStatus().text : '';
-    if (now !== last) { if (last && now) rerenderPractice(); last = now; }
+    if (S.view === 'practice' && S.dialogId == null) refreshPractice(rerenderPractice);
   };
   setInterval(tick, 60000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') tick(); });
