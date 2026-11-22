@@ -36,7 +36,10 @@ async def main():
         await pg.focus('[data-action="setup-start"]')
         await pg.keyboard.press('Enter')
         check(await focused() == 'view-title', 'focus on view heading after starting')
-        check(await pg.title() == 'Practice · OLL · SpacedCube', 'page title names the view')
+        check((await pg.title()).endswith('Practice · OLL · SpacedCube'), 'page title names the view')
+        # Due cases are shown in the header (with an accessible name) and the tab title.
+        due = await pg.text_content('.tab[data-set="OLL"] .due-count')
+        check(due and due.endswith(' due') and (await pg.title()).startswith(f'({due.split()[0]}) '), f'due count in header and title: {due!r}')
 
         # Grading by button keeps focus on that button after the re-render, and is announced.
         await pg.focus('[data-action="grade"][data-ok="1"]')

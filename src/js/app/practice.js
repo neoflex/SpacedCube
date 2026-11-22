@@ -4,6 +4,7 @@ import { S, save, snapshotToday, render } from './state.js';
 import { esc, dayKey, pct, THRESH, announce } from './util.js';
 import { diagram, chip, algFor, label } from './diagrams.js';
 import { onAction } from './actions.js';
+import { dueStatus } from './due.js';
 
 const rng = Math.random;
 const kbd = (k) => `<kbd aria-hidden="true">${k}</kbd>`;
@@ -122,12 +123,6 @@ export function setActive(id, on) {
   save();
 }
 
-function dueCount() {
-  const { C, state } = S;
-  const now = Date.now();
-  return C.activeIds(state).filter((id) => { const cs = state.cases[id]; return (cs.n === 0 && cs.last < 0) || C.dueRatio(cs, state.rep, now) >= 1; }).length;
-}
-
 function caseTitle(id) {
   const c = S.C.CASES[id];
   return `<div class="case-title"><b>${esc(S.C.label(id))}</b><span>${esc(c.nick ? c.nick + ' · ' : '')}${esc(c.group)}</span></div>`;
@@ -184,7 +179,7 @@ export function practiceView() {
   const id = current.id;
   const moves = current.scramble.split(' ').map((m) => `<span>${esc(m)}</span>`).join(' ');
   const helped = current.hints > 0 || !!current.algSeen;
-  const due = dueCount();
+  const status = dueStatus(), due = status.due;
   let last = '';
   if (S.lastResult) {
     const L = S.lastResult;
@@ -193,8 +188,9 @@ export function practiceView() {
   }
   return `${title}<div class="practice">
     <section class="card trainer" aria-labelledby="scramble-h">
-      <div class="row between"><h2 class="eyebrow" id="scramble-h">Scramble</h2><span class="muted" style="font-size:13px">${due ? `${due} due now · ` : ''}Attempt ${state.rep + 1}</span></div>
-      ${!due && !current.isNew ? '<div class="newflag">Nothing is due right now. Extra practice keeps you sharp, but levels only rise after a gap, so this is a good moment to stop.</div>' : ''}
+      <div class="row between"><h2 class="eyebrow" id="scramble-h">Scramble</h2>
+        <span class="row" style="gap:10px"><span class="muted" style="font-size:13px">Attempt ${state.rep + 1}</span><span class="duepill ${due ? 'on' : ''}">${status.text}</span></span></div>
+      ${!due && !current.isNew ? `<div class="newflag">Nothing is due right now${status.wait ? `: the next case comes due ${status.wait}` : ''}. Extra practice keeps you sharp, but levels only rise after a gap, so this is a good moment to stop.</div>` : ''}
       ${current.isNew ? `<div class="newflag"><b>New case: ${esc(label(id))}.</b> Learn the algorithm below, then scramble and try it.</div>` : ''}
       <p class="scramble">${moves}</p>
       <p class="hint">Hold yellow on top and green in front, apply the scramble to a solved cube, then solve the ${C.kind === 'pll' ? 'permutation of the last layer. The top face is already solved' : 'orientation of the last layer'}.</p>

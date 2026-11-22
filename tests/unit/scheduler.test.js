@@ -76,3 +76,21 @@ test('the last case is never picked twice in a row', () => {
 test('with no case in practice there is nothing to pick', () => {
   assert.equal(C.pickNext(fresh(), Math.random, Date.now()), null);
 });
+
+test('due cases: never tried, or past their gap; nextDueAt is the earliest upcoming one', () => {
+  const s = fresh();
+  const now = Date.UTC(2026, 5, 1, 12);
+  C.introduce(s, '1', 0);                                 // never tried: due
+  C.introduce(s, '2', 4); Object.assign(s.cases['2'], { n: 5, last: 1, lastTs: now - 2 * DAY });   // gap 1 day passed: due
+  C.introduce(s, '3', 5); Object.assign(s.cases['3'], { n: 5, last: 1, lastTs: now - 1 * DAY });   // gap 2 days: due in 1 day
+  C.introduce(s, '4', 3); Object.assign(s.cases['4'], { n: 5, last: 1, lastTs: now - 2 * HOUR });  // gap 8 h: due in 6 h
+  assert.deepEqual(C.dueIds(s, now).sort(), ['1', '2']);
+  assert.equal(C.nextDueAt(s, now), now + 6 * HOUR);
+});
+
+test('nextDueAt is null when nothing time-based is waiting', () => {
+  const s = fresh();
+  assert.equal(C.nextDueAt(s, Date.now()), null);
+  C.introduce(s, '1', 0);
+  assert.equal(C.nextDueAt(s, Date.now()), null);
+});

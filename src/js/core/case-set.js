@@ -194,6 +194,19 @@ export function makeSet(def) {
     return success * few;
   }
   const activeIds = (s) => CASE_IDS.filter((id) => s.cases[id].active);
+  // Cases to practise now: never tried, or due by their gap (levels 0-1: by attempts).
+  const isDue = (s, id, now) => { const cs = s.cases[id]; return (cs.n === 0 && cs.last < 0) || dueRatio(cs, s.rep, now) >= 1; };
+  const dueIds = (s, now) => activeIds(s).filter((id) => isDue(s, id, now));
+  // When the next case that is not due yet becomes due (only time-based levels count), or null.
+  function nextDueAt(s, now) {
+    let t = Infinity;
+    for (const id of activeIds(s)) {
+      const cs = s.cases[id];
+      if (cs.level < 2 || !cs.lastTs || isDue(s, id, now)) continue;
+      t = Math.min(t, cs.lastTs + GAP_MS[Math.min(cs.level, MAX_LEVEL)]);
+    }
+    return t === Infinity ? null : t;
+  }
   function pickNext(s, rng, now) {
     const act = activeIds(s);
     if (!act.length) return null;
@@ -263,6 +276,6 @@ export function makeSet(def) {
     GROUPS: def.GROUPS, CASES, CASE_IDS, INTRO_ORDER, checkAlg, makeScramble, matches, viewFor, stripLead, solvePath,
     MAX_LEVEL, INTERVALS, BUCKETS, bucketOf, lastMissRep, sortWeakest, sortRecentMisses,
     GAP_MS, dueRatio, nextLevelAt: (cs) => (cs.lastTs ? cs.lastTs + GAP_MS[cs.level] : 0),
-    freshState, normalize, weightOf, extraFactor, activeIds, pickNext, nextToIntroduce, blockers, shouldIntroduce, introduce, grade,
+    freshState, normalize, weightOf, extraFactor, activeIds, dueIds, nextDueAt, pickNext, nextToIntroduce, blockers, shouldIntroduce, introduce, grade,
   };
 }

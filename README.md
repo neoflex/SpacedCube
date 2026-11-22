@@ -16,6 +16,7 @@ It is a static web app: it installs full screen on a phone, works offline, and c
 - **Custom algorithms.** Checked against the case before saving; a leading `y` rotation is hidden and the diagram is turned to match.
 - **Cases view.** Grouped like jperm.net, or sorted by weakest first / most recent misses.
 - **Progress view.** Daily attempts, success rate and cases by level, with a table view.
+- **What is due, at a glance.** Each set button in the header shows how many cases are due, the practice screen shows "N due now" or when the next case comes due, the tab title carries the count, and an installed app shows it as an icon badge where the system supports it (Badging API). Counts refresh every minute.
 - **Data.** Local storage first, optional sync, backup code export/import (a code restores into the set it came from).
 - **Accessible.** Works with the keyboard and screen readers: skip link, one heading per view with focus moved to it, focus kept on the same control after every update, modal dialogs that make the page behind inert and return focus, results and errors announced in a live region, text alternatives for diagrams and a table for the charts, single-key shortcuts that can be turned off, reduced motion respected. axe-core checks every screen against WCAG 2.2 A and AA in both colour schemes.
 - **Private by default.** No ads, analytics or third-party requests: fonts and three.js are served by the app. Cloudflare Turnstile loads only once someone starts signing in.
@@ -41,6 +42,7 @@ src/js/app/            The UI, as small ES modules:
   supabase.js, sync.js   sync server client and newest-wins sync
   captcha.js, account.js Turnstile check and sign-in
   practice.js, cases.js, progress.js, charts.js, options.js   the views
+  due.js                 due counts: header badges, title, app icon badge
   diagrams.js            case diagrams and labels
   dialog.js, modal.js    case dialog and shared modal behaviour
   viewer3d.js            3D replay

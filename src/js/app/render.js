@@ -11,6 +11,7 @@ import { optionsView, syncText } from './options.js';
 import { renderDialog } from './dialog.js';
 import { onAction } from './actions.js';
 import { switchSet } from './state.js';
+import { renderDue } from './due.js';
 
 const VIEW_NAMES = { practice: 'Practice', cases: 'Cases', progress: 'Progress', options: 'Options' };
 const KEY_ATTRS = ['action', 'id', 'f', 'r', 'p', 'on', 'group', 'ok', 'view'];
@@ -40,6 +41,7 @@ export function render() {
     if (again) again.focus({ preventScroll: true });
   }
   renderDialog();
+  renderDue();
 }
 
 // The small status in the header; only touched when it changes, so screen readers are not spammed.

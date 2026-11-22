@@ -7,6 +7,7 @@ import { render, renderSync, showReloadBar } from './app/render.js';
 import { listenKeys } from './app/keys.js';
 import { listenCharts } from './app/charts.js';
 import { listenAccount, takeRedirect } from './app/account.js';
+import { listenDue } from './app/due.js';
 
 hooks.render = render;
 hooks.afterSave = (set) => Sync.schedule(set);
@@ -20,6 +21,7 @@ listen();
 listenKeys();
 listenCharts();
 listenAccount();
+listenDue(() => { if (S.view === 'practice' && S.dialogId == null) render(); });
 
 takeRedirect();
 window.addEventListener('hashchange', () => { if (takeRedirect()) { render(); Sync.init(); } });

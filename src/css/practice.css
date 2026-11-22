@@ -91,3 +91,8 @@
   @keyframes pop { from { transform: scale(.985); opacity: .6; } to { transform: none; opacity: 1; } }
 }
 .card h2.eyebrow { font-family: var(--font-body); font-stretch: normal; font-size: 12px; font-weight: 600; }
+.duepill {
+  font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 99px; white-space: nowrap;
+  background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+}
+.duepill.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-size: 14px; }

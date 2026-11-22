@@ -96,6 +96,11 @@ a { color: var(--accent); }
 .setsw { margin-right: auto; }
 .setsw .tab { font-family: var(--font-display); font-stretch: 110%; font-weight: 700; padding: 6px 12px; }
 .tab[aria-current="page"], .tab[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.due-count {
+  display: inline-block; margin-left: 6px; min-width: 19px; padding: 0 6px; border-radius: 99px;
+  background: var(--accent); color: var(--accent-ink); font-family: var(--font-body); font-size: 11px; font-weight: 700;
+  line-height: 19px; text-align: center; vertical-align: 1px; font-variant-numeric: tabular-nums;
+}
 .sync { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .sync::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--sticker-off); }
 .sync[data-s="synced"]::before { background: var(--good); }
