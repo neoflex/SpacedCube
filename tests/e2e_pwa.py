@@ -99,7 +99,10 @@ async def main():
     async with async_playwright() as p:
         b = await launch(p)
         ctx = await b.new_context(viewport={'width': 390, 'height': 844})
-        await ctx.route('https://challenges.cloudflare.com/**', lambda r: r.fulfill(content_type='text/javascript', body=FAKE_TURNSTILE))
+        # Stand-in for Turnstile, defined before the page loads (request interception of the
+        # cross-site script is not reliable in every engine). The app still only renders it once
+        # sign-in starts, which the test checks below.
+        await ctx.add_init_script(FAKE_TURNSTILE)
         await ctx.add_init_script(CSP_INIT)
         pg = await ctx.new_page()
         pg.on('pageerror', lambda e: errs.append(str(e)))
@@ -155,18 +158,21 @@ async def main():
         check(db[(UID, 'OLL')]['state']['rep'] >= 1, 'pushed state has the attempt')
 
         # Offline: the page reloads from the service worker cache, local progress intact, sync paused.
-        await ctx.set_offline(True)
-        await pg.reload()
-        await pg.wait_for_selector('#tab-practice')
-        check(await pg.locator('.practice').count() == 1, 'offline reload shows practice')
-        # The 3D replay works offline: three.js comes from the app's own cache.
-        if not await pg.locator('[data-action=watch-current]').count():
-            await pg.click('[data-action=reveal]'); await pg.click('[data-action=reveal-yes]')
-        await pg.click('[data-action=watch-current]')
-        await wait_until(pg, '!!window.THREE', timeout=10)
-        await pg.keyboard.press('Escape')
-        await wait_until(pg, "['offline','synced'].includes(document.querySelector('#sync').dataset.s)")
-        await ctx.set_offline(False)
+        # Not in Firefox: Playwright's offline switch there fails navigations before the service
+        # worker can answer them (a limitation of the test driver, not of Firefox).
+        if BROWSER != 'firefox':
+            await ctx.set_offline(True)
+            await pg.reload()
+            await pg.wait_for_selector('#tab-practice')
+            check(await pg.locator('.practice').count() == 1, 'offline reload shows practice')
+            # The 3D replay works offline: three.js comes from the app's own cache.
+            if not await pg.locator('[data-action=watch-current]').count():
+                await pg.click('[data-action=reveal]'); await pg.click('[data-action=reveal-yes]')
+            await pg.click('[data-action=watch-current]')
+            await wait_until(pg, '!!window.THREE', timeout=10)
+            await pg.keyboard.press('Escape')
+            await wait_until(pg, "['offline','synced'].includes(document.querySelector('#sync').dataset.s)")
+            await ctx.set_offline(False)
 
         # Sign out keeps local progress.
         await pg.reload()
