@@ -8,7 +8,7 @@ import asyncio, base64, json, os, pathlib, threading, time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from playwright.async_api import async_playwright
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent / 'dist' / 'pwa'
+ROOT = pathlib.Path(__file__).resolve().parent.parent / 'dist'
 UID = '11111111-2222-3333-4444-555555555555'
 db = {}       # (user_id, set) -> row
 log = []      # (method, path)
@@ -45,7 +45,7 @@ class H(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/config.js':
             port = self.server.server_address[1]
-            js = f"window.CUBE_TRAINER_CONFIG = {{ supabaseUrl: 'http://localhost:{port}/', supabaseAnonKey: 'anon-key', allowSignup: true, turnstileSiteKey: 'test-site-key' }};".encode()
+            js = f"window.SPACEDCUBE_CONFIG = {{ supabaseUrl: 'http://localhost:{port}/', supabaseKey: 'anon-key', allowSignup: true, turnstileSiteKey: 'test-site-key' }};".encode()
             self.send_response(200); self.send_header('Content-Type', 'text/javascript'); self.send_header('Content-Length', str(len(js))); self.end_headers(); self.wfile.write(js)
             return
         if self.path.startswith('/rest/v1/progress'):
@@ -112,7 +112,7 @@ async def main():
         check(await pg.evaluate("[...document.fonts].some(f => f.family === 'IBM Plex Sans' && f.status === 'loaded') && [...document.fonts].some(f => f.family.includes('Archivo') && f.status === 'loaded')"), 'self-hosted fonts loaded')
 
         # Remote state: OLL set up, case 27 active at level 4, newer than anything local.
-        remote = await pg.evaluate("""() => { const s = CubeCore.sets.OLL.freshState(); s.setupDone = true;
+        remote = await pg.evaluate("""async () => { const { sets } = await import('./js/core/index.js'); const s = sets.OLL.freshState(); s.setupDone = true;
             s.cases['27'].active = true; s.cases['27'].level = 4; s.cases['27'].n = 9; s.updatedAt = Date.now() - 1000; return s; }""")
         db[(UID, 'OLL')] = {'user_id': UID, 'set': 'OLL', 'state': remote}
 
@@ -187,15 +187,15 @@ async def main():
         check(st['cases']['27']['level'] == 4, 'local progress kept after delete')
         check(await pg.locator('a[href="privacy.html"]').count() == 1, 'privacy link')
         r = await pg.request.get(url + 'privacy.html')
-        check(r.ok and 'Delete account' in await r.text(), 'privacy page served')
+        check(r.ok and '<h1>Privacy</h1>' in await r.text(), 'privacy page served')
 
 
         # Backup code of the other set restores into that set.
-        pll = await pg.evaluate("""() => { const s = CubeCore.sets.PLL.freshState(); s.setupDone = true; s.cases.T.active = true; s.cases.T.level = 2; return JSON.stringify(s); }""")
+        pll = await pg.evaluate("""async () => { const { sets } = await import('./js/core/index.js'); const s = sets.PLL.freshState(); s.setupDone = true; s.cases.T.active = true; s.cases.T.level = 2; return JSON.stringify(s); }""")
         await pg.click('.tab[data-set="OLL"]'); await pg.click('#tab-options')
         await pg.click('[data-action="panel"][data-p="import"]'); await pg.fill('#backup-in', pll); await pg.click('[data-action=import]')
         check(await pg.locator('.msg.ok', has_text='PLL progress restored').count() == 1, 'PLL backup restored from the OLL tab')
-        check(await pg.get_attribute('.tab[data-set="PLL"]', 'aria-current') == 'page', 'switched to PLL')
+        check(await pg.get_attribute('.tab[data-set="PLL"]', 'aria-pressed') == 'true', 'switched to PLL')
         st = await pg.evaluate("JSON.parse(localStorage.getItem('oll-trainer-v1'))")
         check(st['cases']['27']['level'] == 4, 'OLL untouched by PLL import')
         await b.close()

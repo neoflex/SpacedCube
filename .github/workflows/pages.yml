@@ -1,5 +1,8 @@
-# Builds the app, runs the tests, and publishes dist/pwa/ to GitHub Pages (https://spacedcube.app).
+# Tests the app, then builds it with this repository's settings and publishes it to GitHub Pages.
 # Pull requests run the tests only.
+#
+# Deployment settings come from repository variables (Settings > Secrets and variables > Actions >
+# Variables), so the code holds nothing specific to one deployment. See README, "Deploying your own copy".
 name: Build, test and deploy
 
 on:
@@ -26,24 +29,45 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Build
-        run: python3 build.py
+      - name: Install test tools
+        run: |
+          npm ci
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      # Tests run on a build without deployment settings (sync is mocked where it is tested).
+      - name: Build for tests
+        run: |
+          python3 build.py
       - name: Core tests
         run: |
           node tests/test_core.js | tee core.log && tail -1 core.log | grep -q 'fail 0$'
-      - name: Install browser
+      - name: Smoke and accessibility test
         run: |
-          pip install playwright && python -m playwright install --with-deps chromium
-      - name: Smoke test
+          python3 tests/e2e_smoke.py | tee smoke.log && grep -q '^found: \[\] errors: \[\] a11y: \[\]$' smoke.log
+      - name: Keyboard test
         run: |
-          python3 tests/e2e_smoke.py | tee smoke.log && grep -q '^found: \[\] errors: \[\]$' smoke.log
+          python3 tests/e2e_keyboard.py | tee keyboard.log && grep -q '^keyboard: ok$' keyboard.log
       - name: PWA and sync test
         run: |
           python3 tests/e2e_pwa.py | tee pwa.log && grep -q '^pwa: ok$' pwa.log
+      - name: Build for deployment
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          ALLOW_SIGNUP: ${{ vars.ALLOW_SIGNUP }}
+          TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+          PRIVACY_OPERATOR: ${{ vars.PRIVACY_OPERATOR }}
+          PRIVACY_CONTACT_EMAIL: ${{ vars.PRIVACY_CONTACT_EMAIL }}
+          PRIVACY_DATA_LOCATION: ${{ vars.PRIVACY_DATA_LOCATION }}
+          PRIVACY_EMAIL_PROVIDER: ${{ vars.PRIVACY_EMAIL_PROVIDER }}
+          PRIVACY_HOSTING: ${{ vars.PRIVACY_HOSTING }}
+        run: |
+          python3 build.py
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
-          path: dist/pwa
+          path: dist
 
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

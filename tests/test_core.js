@@ -1,4 +1,4 @@
-const K = require('../src/core.js');
+import * as K from '../src/js/core/index.js';
 const P = K.sets.PLL, O = K.sets.OLL;
 let fail = 0;
 const mirror = (alg) => K.parse(alg).map(m => {

@@ -5,7 +5,7 @@ Read README.md first: it describes the features, layout, scheduling rules and sy
 ## Working rules
 
 - Edit `src/`, never `dist/`. Run `python3 build.py` after every change.
-- Before committing: `node tests/test_core.js` must end with `fail 0`, `tests/e2e_smoke.py` must print `found: [] errors: []`, and `tests/e2e_pwa.py` must print `pwa: ok`.
+- Before committing: `node tests/test_core.js` must end with `fail 0`, `tests/e2e_smoke.py` must print `found: [] errors: [] a11y: []`, `tests/e2e_keyboard.py` must print `keyboard: ok`, and `tests/e2e_pwa.py` must print `pwa: ok`. Run `npm install` once for axe-core.
 - Template literals: every `${...}` must sit inside backticks. Two bugs shipped from `${...}` inside single-quoted strings; the smoke test exists to catch that.
 - Case ids are strings everywhere (`'27'`, `'Jb'`). OLL ids sort numerically, PLL ids keep the order of the definition.
 - Every diagram, scramble and key is derived from the algorithms by the simulator. Never hand-write diagram data; to change an algorithm, change the `RAW` row and rerun the tests.
@@ -18,9 +18,12 @@ Read README.md first: it describes the features, layout, scheduling rules and sy
 - New cases come from a learning pool (`settings.pool`, default 3), not "everything must be learned first".
 - Sync is whole-state, newest `updatedAt` wins. Local storage is always written first; the page must work fully offline and without any backend.
 - Text in the UI: plain, direct, no em-dash asides. Dialogs are built into the page (no alert/confirm).
-- Accounts are open to anyone (`allowSignup`), protected by Cloudflare Turnstile on the sign-in form. Deploy the site key before Supabase requires the check, never the other way round. Users can delete their account from the app; `src/pwa/privacy.html` must stay accurate when what is stored or who processes it changes.
-- GDPR: the installable app loads nothing from third parties (no CDN, no Google Fonts, no analytics). Fonts and three.js are self-hosted under `src/pwa/`. Turnstile loads only once the user starts signing in. `tests/e2e_pwa.py` enforces this.
+- Accounts can be open to anyone (`ALLOW_SIGNUP`), protected by Cloudflare Turnstile on the sign-in form. Deploy the site key before Supabase requires the check, never the other way round. Users can delete their account from the app; `src/privacy.html` must stay accurate when what is stored or who processes it changes.
+- GDPR: the app loads nothing from third parties (no CDN, no Google Fonts, no analytics). Fonts and three.js are self-hosted under `src/fonts/` and `src/vendor/`. Turnstile loads only once the user starts signing in. `tests/e2e_pwa.py` enforces this.
+- Accessibility: WCAG 2.2 AA. Every view has an `h1#view-title`; focus moves to it on view change and stays on the same control after a re-render (`render.js`). Dialogs go through `modal.js`. Announce results and errors with `announce()`, not by re-rendering a live region. Diagrams inside a labelled control are `decorative`. Single-key shortcuts must stay switchable off. The smoke test runs axe on every screen.
 
-## Two builds
+## Code layout
 
-`dist/index.html` is the Claude artifact (single file, sync through `window.claude.use('db')`). `dist/pwa/` is the installable app (service worker, manifest, `config.js` with the Supabase URL and anon key). Both come from the same `src/`; keep the artifact build free of PWA tags (`<!--@PWA_HEAD@-->` is filled only for the PWA). Outside claude.ai the page falls back to Supabase (if configured) or local storage only.
+- No bundler, no runtime dependency: `src/` is copied to `dist/` and the browser loads the ES modules directly. Keep modules small and focused (see the README layout); `src/js/core/` must not touch the DOM.
+- Shared UI state is `S` in `src/js/app/state.js`. Modules register their click handlers with `onAction` and re-render with `render()`; avoid import cycles (use `hooks` in state.js).
+- Nothing deployment-specific in the repository: no project ids, keys, domains or contact addresses. They come from environment variables at build time (GitHub Actions repository variables); see `build.py` and the README table.

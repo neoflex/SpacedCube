@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SpacedCube: OLL and PLL trainer</title>
+<meta name="description" content="Spaced practice for all 57 OLL and 21 PLL cases of the 3x3 cube. Free, works offline.">
+<meta name="theme-color" content="#eceef2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="SpacedCube">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preload" href="fonts/archivo-latin-variable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/practice.css">
+<link rel="stylesheet" href="css/cases.css">
+<link rel="stylesheet" href="css/progress.css">
+<link rel="stylesheet" href="css/options.css">
+<link rel="stylesheet" href="css/dialogs.css">
+<script src="config.js"></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+<a class="skip" href="#app">Skip to content</a>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 30 30" aria-hidden="true">
+        <rect x="1" y="1" width="28" height="28" rx="6" fill="var(--cube-body)"/>
+        <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" fill="var(--sticker-off)"/>
+        <rect x="11.75" y="4" width="6.5" height="6.5" rx="1.5" fill="var(--sticker-on)"/>
+        <rect x="19.5" y="4" width="6.5" height="6.5" rx="1.5" fill="var(--sticker-off)"/>
+        <rect x="4" y="11.75" width="6.5" height="6.5" rx="1.5" fill="var(--sticker-on)"/>
+        <rect x="11.75" y="11.75" width="6.5" height="6.5" rx="1.5" fill="var(--sticker-on)"/>
+        <rect x="19.5" y="11.75" width="6.5" height="6.5" rx="1.5" fill="var(--sticker-on)"/>
+        <rect x="4" y="19.5" width="6.5" height="6.5" rx="1.5" fill="var(--sticker-off)"/>
+        <rect x="11.75" y="19.5" width="6.5" height="6.5" rx="1.5" fill="var(--sticker-on)"/>
+        <rect x="19.5" y="19.5" width="6.5" height="6.5" rx="1.5" fill="var(--sticker-off)"/>
+      </svg>
+      <div>
+        <p class="brand-name">SpacedCube</p>
+        <small>OLL and PLL, spaced practice</small>
+      </div>
+    </div>
+    <div class="tabs setsw" role="group" aria-label="Algorithm set">
+      <button type="button" class="tab" data-action="set" data-set="OLL" aria-pressed="false">OLL</button>
+      <button type="button" class="tab" data-action="set" data-set="PLL" aria-pressed="false">PLL</button>
+    </div>
+    <nav class="tabs" aria-label="Views">
+      <button type="button" class="tab" id="tab-practice" data-action="view" data-view="practice">Practice</button>
+      <button type="button" class="tab" id="tab-cases" data-action="view" data-view="cases">Cases</button>
+      <button type="button" class="tab" id="tab-progress" data-action="view" data-view="progress">Progress</button>
+      <button type="button" class="tab" id="tab-options" data-action="view" data-view="options">Options</button>
+    </nav>
+    <div class="sync" id="sync" data-s="local"><span>Saved in this browser</span></div>
+  </div>
+</header>
+<main id="app" tabindex="-1"></main>
+<div id="dlg"></div>
+<div id="viewer"></div>
+<div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
+<noscript><p class="noscript">SpacedCube needs JavaScript to run.</p></noscript>
+</body>
+</html>

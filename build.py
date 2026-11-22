@@ -1,65 +1,84 @@
-"""Build both versions of the page.
+"""Build the app into dist/ (a static site: serve it over HTTPS from any host).
 
-dist/index.html   single self-contained file for the Claude artifact (core.js and app.js inlined).
-dist/pwa/         installable web app: the same page plus manifest, service worker, icons and config.js.
-                  Serve this folder over HTTPS (any static host).
+src/ is copied as is (no bundling: the browser loads the ES modules directly). The build adds:
+  config.js      deployment settings, from environment variables (GitHub Actions variables in CI)
+  privacy.html   the privacy page, filled in from the same variables
+  icons          drawn by tools/icons.py
+  sw.js          with the list of files to cache and a version hash
+
+Environment variables (all optional; without SUPABASE_URL the app keeps progress in the browser only):
+  SUPABASE_URL               https://<project>.supabase.co
+  SUPABASE_PUBLISHABLE_KEY   the project's publishable (or legacy anon) key; public by design
+  ALLOW_SIGNUP               "true": an unknown email creates an account on first sign-in
+  TURNSTILE_SITE_KEY         Cloudflare Turnstile site key (public); empty = no check on the sign-in form
+  PRIVACY_OPERATOR           who runs this copy, e.g. "Jane Doe, Luxembourg"
+  PRIVACY_CONTACT_EMAIL      address for privacy requests
+  PRIVACY_DATA_LOCATION      where Supabase stores the data, e.g. "Servers in Ireland (EU)."
+  PRIVACY_EMAIL_PROVIDER     who sends the sign-in emails, e.g. "Brevo (EU)"
+  PRIVACY_HOSTING            who hosts the files (default: GitHub Pages)
 """
-import hashlib, json, pathlib, shutil, sys
+import hashlib, html, json, os, pathlib, re, shutil, sys
 
 root = pathlib.Path(__file__).parent
 src = root / 'src'
-sys.path.insert(0, str(src / 'pwa'))
+dist = root / 'dist'
+sys.path.insert(0, str(root / 'tools'))
 import icons  # noqa: E402
 
-page = (src / 'index.src.html').read_text()
-core = (src / 'core.js').read_text()
-app = (src / 'app.js').read_text()
-assert '</script' not in core and '</script' not in app
-page = page.replace('/*@CORE@*/', core).replace('/*@APP@*/', app)
-dist = root / 'dist'
-dist.mkdir(exist_ok=True)
 
-# Artifact build: no PWA tags (the artifact runtime provides sync through window.claude).
-# claude.ai only lets artifacts load Google Fonts and cdnjs, so the artifact keeps those; the PWA serves its own copies.
-GOOGLE_FONTS = '''<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">'''
-artifact = page.replace('<!--@PWA_HEAD@-->\n', '').replace('<!--@FONTS@-->', GOOGLE_FONTS)
-(dist / 'index.html').write_text(artifact)
-print(f'dist/index.html: {len(artifact):,} bytes')
+def env(name, default=''):
+    return os.environ.get(name, '').strip() or default
 
-# PWA build.
-PWA_HEAD = '''<meta name="theme-color" content="#eceef2" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="SpacedCube">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon-192.png" type="image/png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="preload" href="fonts/archivo-latin-variable.woff2" as="font" type="font/woff2" crossorigin>
-<script src="config.js"></script>
-<script>
-window.SPACEDCUBE_THREE_URL = 'vendor/three.min.js';
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+
+def truthy(v):
+    return v.lower() in ('1', 'true', 'yes', 'on')
+
+
+if dist.exists():
+    shutil.rmtree(dist)
+shutil.copytree(src, dist)
+
+# Deployment settings.
+config = {
+    'supabaseUrl': env('SUPABASE_URL'),
+    'supabaseKey': env('SUPABASE_PUBLISHABLE_KEY'),
+    'allowSignup': truthy(env('ALLOW_SIGNUP')),
+    'turnstileSiteKey': env('TURNSTILE_SITE_KEY'),
 }
-</script>'''
-pwa = dist / 'pwa'
-if pwa.exists():
-    shutil.rmtree(pwa)
-pwa.mkdir()
-html = page.replace('<!--@PWA_HEAD@-->', PWA_HEAD).replace('<!--@FONTS@-->', '<link rel="stylesheet" href="fonts/fonts.css">')
-assert '://' not in ''.join(l for l in html.splitlines() if ('src=' in l or 'href=' in l) and 'jperm.net' not in l and 'w3.org' not in l and 'cdnjs' not in l), 'PWA page must not load anything from another origin'
-(pwa / 'index.html').write_text(html)
-for f in ['config.js', 'manifest.webmanifest', 'privacy.html']:
-    shutil.copy(src / 'pwa' / f, pwa / f)
-for d in ['fonts', 'vendor']:
-    shutil.copytree(src / 'pwa' / d, pwa / d)
-icons.write_all(pwa)
-files = sorted(p.relative_to(pwa).as_posix() for p in pwa.rglob('*') if p.is_file() and not p.name.startswith('LICENSE'))
-version = hashlib.sha256(b''.join((pwa / f).read_bytes() for f in files if f != 'config.js')).hexdigest()[:12]
-sw = (src / 'pwa' / 'sw.js').read_text().replace('@VERSION@', version).replace('@FILES@', json.dumps(['./' + f for f in files]))
-(pwa / 'sw.js').write_text(sw)
-print(f'dist/pwa/: {len(list(pwa.iterdir()))} files, cache version {version}')
+if bool(config['supabaseUrl']) != bool(config['supabaseKey']):
+    sys.exit('Set both SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY, or neither.')
+(dist / 'config.js').write_text(
+    '// Generated by build.py from environment variables. Do not edit.\n'
+    f'window.SPACEDCUBE_CONFIG = {json.dumps(config, indent=2)};\n')
+
+# Privacy page.
+sync = bool(config['supabaseUrl'])
+contact = env('PRIVACY_CONTACT_EMAIL')
+values = {
+    'OPERATOR': html.escape(env('PRIVACY_OPERATOR', 'the people who published it')),
+    'CONTACT': f'<a href="mailto:{html.escape(contact)}">{html.escape(contact)}</a>' if contact else 'Ask the people who run this site.',
+    'DATA_LOCATION': html.escape(env('PRIVACY_DATA_LOCATION')),
+    'EMAIL_PROVIDER': html.escape(env('PRIVACY_EMAIL_PROVIDER', 'The email service of the sync server')),
+    'HOSTING': html.escape(env('PRIVACY_HOSTING', 'GitHub Pages (GitHub, United States, under the EU-US Data Privacy Framework)')),
+}
+page = (src / 'privacy.html').read_text()
+page = re.sub(r'\n<!-- Template:.*?-->', '', page)
+for block, keep in (('SYNC', sync), ('TURNSTILE', sync and bool(config['turnstileSiteKey']))):
+    pattern = rf'<!--IF {block}-->(.*?)<!--END {block}-->'
+    page = re.sub(pattern, (lambda m: m.group(1)) if keep else '', page, flags=re.S)
+for k, v in values.items():
+    page = page.replace('{{' + k + '}}', v)
+assert '{{' not in page and '<!--IF' not in page, 'unfilled privacy template'
+(dist / 'privacy.html').write_text(page)
+
+icons.write_all(dist)
+
+# Service worker: every file of the app, and a version that changes whenever one of them does.
+files = sorted(p.relative_to(dist).as_posix() for p in dist.rglob('*')
+               if p.is_file() and p.name != 'sw.js' and not p.name.startswith('LICENSE'))
+version = hashlib.sha256(b''.join((dist / f).read_bytes() for f in files if f != 'config.js')).hexdigest()[:12]
+sw = (src / 'sw.js').read_text().replace('@VERSION@', version).replace('@FILES@', json.dumps(['./' + f for f in files]))
+(dist / 'sw.js').write_text(sw)
+
+print(f'dist/: {len(files) + 1} files, cache version {version}, sync {"on" if sync else "off"}'
+      f'{", sign-up open" if config["allowSignup"] else ""}{", Turnstile" if config["turnstileSiteKey"] else ""}')

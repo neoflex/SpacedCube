@@ -6,6 +6,7 @@
 <title>Privacy · SpacedCube</title>
 <meta name="description" content="What SpacedCube stores, where, and how to delete it.">
 <link rel="icon" href="icon-192.png" type="image/png">
+<!-- Template: build.py fills {{...}} from environment variables and keeps or drops the IF blocks. -->
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
 :root {
@@ -36,11 +37,12 @@ a { color: var(--accent); }
   <h1>Privacy</h1>
   <p class="muted">Last updated 21 November 2026</p>
 
-  <p>SpacedCube is a free trainer for the 3x3 cube, run as a personal open-source project. It has no ads, no analytics and no tracking cookies.</p>
+  <p>SpacedCube is a free, open-source trainer for the 3x3 cube. This copy is run by {{OPERATOR}}. It has no ads, no analytics and no tracking cookies.</p>
 
   <h2>Without an account</h2>
-  <p>Your progress is stored only in your browser (local storage). It never leaves your device unless you sign in. Everything the app needs, including fonts and the 3D viewer, is served from spacedcube.app itself by GitHub Pages, which receives the usual technical data of any web request (such as your IP address). No other service is contacted until you start signing in.</p>
+  <p>Your progress is stored only in your browser (local storage). It never leaves your device unless you sign in. Everything the app needs, including fonts and the 3D viewer, is served from this site itself, whose host receives the usual technical data of any web request (such as your IP address). No other service is contacted until you start signing in.</p>
 
+<!--IF SYNC-->
   <h2>With an account</h2>
   <p>If you sign in to sync between devices, we store:</p>
   <ul>
@@ -51,24 +53,27 @@ a { color: var(--accent); }
 
   <h2>Who processes the data</h2>
   <ul>
-    <li><b>Supabase</b>: database and sign-in. Servers in Ireland (EU).</li>
-    <li><b>Brevo</b>: sends the sign-in emails. EU.</li>
+    <li><b>Supabase</b>: database and sign-in. {{DATA_LOCATION}}</li>
+    <li><b>{{EMAIL_PROVIDER}}</b>: sends the sign-in emails.</li>
+<!--IF TURNSTILE-->
     <li><b>Cloudflare Turnstile</b>: the check against automated sign-ups. It loads only when you start signing in, looks at signals from your browser and device to tell people from bots, and does not use them for advertising.</li>
-    <li><b>GitHub Pages</b>: hosts the app's files (GitHub, United States, under the EU-US Data Privacy Framework).</li>
+<!--END TURNSTILE-->
+    <li><b>{{HOSTING}}</b>: hosts the app's files.</li>
   </ul>
   <p>These providers keep technical logs for a short time under their own policies.</p>
 
   <h2>Legal basis</h2>
-  <p>Storing your email and progress is necessary to provide the sync you ask for (GDPR article 6(1)(b)). The check against automated sign-ups is in the legitimate interest of keeping the service working (article 6(1)(f)).</p>
+  <p>Storing your email and progress is necessary to provide the sync you ask for (GDPR article 6(1)(b)).<!--IF TURNSTILE--> The check against automated sign-ups is in the legitimate interest of keeping the service working (article 6(1)(f)).<!--END TURNSTILE--></p>
 
   <h2>How long</h2>
   <p>Until you delete your account. You can do that yourself in the app: Options, Your data, Delete account. Your sign-in and everything stored on the server are deleted at once. The copy in your browser stays until you clear it or use Reset all progress.</p>
 
   <h2>Your rights</h2>
   <p>You can see your data (Options, Show backup code), correct it, take it with you (the backup code), delete it (Delete account) and object to its use. For anything else, or to ask what we hold about you, write to the address below. You can also complain to the data protection authority where you live.</p>
+<!--END SYNC-->
 
   <h2>Contact</h2>
-  <p><a href="mailto:privacy@spacedcube.app">privacy@spacedcube.app</a></p>
+  <p>{{CONTACT}}</p>
 </main>
 </body>
 </html>
