@@ -1,6 +1,6 @@
 // Case dialog: algorithm, custom algorithm, record, add/remove/reset.
 import { S, save, render } from './state.js';
-import { esc, pct, announce } from './util.js';
+import { $, esc, pct, announce } from './util.js';
 import { diagram, chip, algFor, label, nextLevelText } from './diagrams.js';
 import { setActive } from './practice.js';
 import { onAction } from './actions.js';
@@ -16,7 +16,7 @@ export function renderDialog() {
   const custom = state.custom[id] || '';
   const inputVal = S.algDraft != null ? S.algDraft : custom;
   const msg = S.algMsg;
-  const wasInside = box.contains(document.activeElement) ? document.activeElement : null;
+  const wasInside = box.contains(document.activeElement) ? /** @type {HTMLElement} */ (document.activeElement) : null;
   const focusKey = wasInside && (wasInside.id || wasInside.dataset.action);
   box.innerHTML = `<div class="overlay" data-action="close-bg"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
     <button type="button" class="x" data-action="close" aria-label="Close">×</button>
@@ -52,8 +52,8 @@ export function renderDialog() {
   </div></div>`;
   modalOpened('dlg');
   // Keep focus where it was (the same control after a re-render), else start on the close button.
-  const again = focusKey && (document.getElementById(focusKey) || box.querySelector(`[data-action="${focusKey}"]`));
-  (again || box.querySelector('.x')).focus();
+  const again = focusKey && /** @type {HTMLElement | null} */ (document.getElementById(focusKey) || box.querySelector(`[data-action="${focusKey}"]`));
+  /** @type {HTMLElement} */ (again || box.querySelector('.x')).focus();
 }
 
 export function closeDialog() {
@@ -86,7 +86,7 @@ onAction({
   },
   'save-alg': () => {
     const { C, state } = S;
-    const v = document.getElementById('custom-alg').value.trim();
+    const v = $('#custom-alg').value.trim();
     if (!v) { delete state.custom[S.dialogId]; S.algMsg = { ok: true, text: 'Using the standard algorithm.' }; save(); render(); return; }
     const r = C.checkAlg(S.dialogId, v);
     if (r.ok) {

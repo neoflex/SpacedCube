@@ -2,13 +2,21 @@
   "name": "spacedcube",
   "private": true,
   "type": "module",
-  "description": "Spaced practice for OLL and PLL. The app needs no build tools; this file only pins the test helper (axe-core).",
+  "description": "Spaced practice for OLL and PLL. The app needs no build tools; these are the checks and tests.",
   "license": "MIT",
   "scripts": {
     "build": "python3 build.py",
-    "test": "node tests/test_core.js && python3 tests/e2e_smoke.py && python3 tests/e2e_pwa.py"
+    "lint": "eslint .",
+    "typecheck": "tsc -p .",
+    "test:unit": "node --test \"tests/unit/*.test.js\" && node tests/test_core.js",
+    "test:e2e": "python3 tests/e2e_smoke.py && python3 tests/e2e_keyboard.py && python3 tests/e2e_pwa.py",
+    "check": "npm run lint && npm run typecheck && npm run test:unit"
   },
   "devDependencies": {
-    "axe-core": "4.10.3"
+    "@eslint/js": "10.0.1",
+    "axe-core": "4.10.3",
+    "eslint": "10.15.0",
+    "globals": "17.14.0",
+    "typescript": "7.0.2"
   }
 }

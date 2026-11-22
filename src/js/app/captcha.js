@@ -13,7 +13,7 @@ export const Captcha = {
         const sc = document.createElement('script');
         sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
         sc.async = true;
-        sc.onload = () => (window.turnstile ? res() : rej(new Error('captcha')));
+        sc.onload = () => (window.turnstile ? res(undefined) : rej(new Error('captcha')));
         sc.onerror = () => { this.loading = null; rej(new Error('captcha')); };
         document.head.appendChild(sc);
       });

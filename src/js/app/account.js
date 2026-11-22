@@ -2,7 +2,7 @@
 // receive the link, so the code is the reliable path. Shown only when a sync server is configured.
 import { CONFIG } from './env.js';
 import { render } from './state.js';
-import { $, esc, announce } from './util.js';
+import { $, esc, announce, target } from './util.js';
 import { Supa } from './supabase.js';
 import { Captcha } from './captcha.js';
 import { Sync } from './sync.js';
@@ -57,7 +57,7 @@ function authError(e) {
 async function submit(form) {
   if (auth.busy) return;
   auth.busy = true; auth.msg = null;
-  let focus = null;
+  let focus;
   try {
     if (form === 'email') {
       auth.email = $('#auth-email').value.trim();
@@ -97,9 +97,9 @@ export function takeRedirect() {
 }
 
 export function listenAccount() {
-  document.addEventListener('focusin', (e) => { if (e.target && e.target.id === 'auth-email') Captcha.mount(); });
+  document.addEventListener('focusin', (e) => { if (target(e)?.id === 'auth-email') Captcha.mount(); });
   document.addEventListener('submit', (e) => {
-    const f = e.target.closest && e.target.closest('[data-form]');
+    const f = /** @type {HTMLElement | null} */ (target(e)?.closest('[data-form]'));
     if (!f) return;
     e.preventDefault();
     submit(f.dataset.form);

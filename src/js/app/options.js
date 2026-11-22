@@ -1,6 +1,6 @@
 // Options: practice settings, how cases are picked, keyboard shortcuts, and your data.
 import * as K from '../core/index.js';
-import { S, save, render, switchSet, setShortcuts } from './state.js';
+import { S, save, render, switchSet, setShortcuts, backupOwner } from './state.js';
 import { $, esc, THRESH, announce } from './util.js';
 import { Sync } from './sync.js';
 import { accountView } from './account.js';
@@ -16,6 +16,7 @@ export function syncText() {
     connecting: 'Connecting to your account to sync progress…',
     synced: 'Progress is saved in this browser and synced to your account, so it follows you to other devices where you open this page.',
     offline: 'Your account could not be reached just now. Progress is saved in this browser and syncs again when the connection returns.',
+    update: 'Your account holds progress saved by a newer version of SpacedCube. Reload the page to update the app; until then nothing is synced.',
   }[Sync.status];
 }
 
@@ -135,11 +136,14 @@ onAction({
     const raw = $('#backup-in').value.trim();
     try {
       const obj = JSON.parse(raw);
-      if (!obj || typeof obj !== 'object' || !obj.cases || typeof obj.cases !== 'object') throw new Error('bad');
-      // A backup code holds one set. Restore it into the set its case ids belong to.
-      const ids = Object.keys(obj.cases);
-      const owner = Object.keys(K.sets).find((n) => ids.length && ids.every((id) => K.sets[n].CASES[id]));
+      // Restore into the set the code belongs to, whichever set is open.
+      const owner = backupOwner(obj);
       if (!owner) throw new Error('bad');
+      if (K.isNewer(obj)) {
+        S.dataMsg = { ok: false, text: 'This backup code comes from a newer version of SpacedCube. Reload the page to update the app, then restore it again.' };
+        render(); announce(S.dataMsg.text); focusAfter('#backup-in');
+        return;
+      }
       switchSet(owner);
       S.state = S.C.normalize(obj); S.state.setupDone = true; S.current = null; S.undo = null; S.lastResult = null;
       save(); S.view = 'options'; S.dataPanel = null;

@@ -5,7 +5,9 @@ Read README.md first: it describes the features, layout, scheduling rules and sy
 ## Working rules
 
 - Edit `src/`, never `dist/`. Run `python3 build.py` after every change.
-- Before committing: `node tests/test_core.js` must end with `fail 0`, `tests/e2e_smoke.py` must print `found: [] errors: [] a11y: []`, `tests/e2e_keyboard.py` must print `keyboard: ok`, and `tests/e2e_pwa.py` must print `pwa: ok`. Run `npm install` once for axe-core.
+- Before committing: `npm run check` must pass (ESLint, `tsc --checkJs`, unit tests, `tests/test_core.js` ending in `fail 0`), then `tests/e2e_smoke.py` must print `found: [] errors: [] a11y: []`, `tests/e2e_keyboard.py` `keyboard: ok` and `tests/e2e_pwa.py` `pwa: ok`. CI runs the browser tests in Chromium, Firefox and WebKit.
+- Changing the saved-state format: bump `SCHEMA_VERSION` in `src/js/core/schema.js` and add an upgrade step; never edit a released step. Add a unit test with a state in the old format.
+- No inline scripts, `eval` or third-party hosts: the CSP built by `build.py` blocks them and the browser tests fail on violations. A new host (only if unavoidable) goes into the policy in `build.py`.
 - Template literals: every `${...}` must sit inside backticks. Two bugs shipped from `${...}` inside single-quoted strings; the smoke test exists to catch that.
 - Case ids are strings everywhere (`'27'`, `'Jb'`). OLL ids sort numerically, PLL ids keep the order of the definition.
 - Every diagram, scramble and key is derived from the algorithms by the simulator. Never hand-write diagram data; to change an algorithm, change the `RAW` row and rerun the tests.

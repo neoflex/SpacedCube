@@ -1,6 +1,7 @@
 // Drawing the current view. Every change re-renders the view from S; focus stays on the
 // equivalent control so keyboard and screen-reader users keep their place.
 import { S } from './state.js';
+import { $$ } from './util.js';
 import { Sync } from './sync.js';
 import { practiceView, startFromSetup } from './practice.js';
 import { casesView } from './cases.js';
@@ -23,10 +24,10 @@ function focusKey(el) {
 }
 
 export function render() {
-  document.querySelectorAll('.tab[data-view]').forEach((t) => {
+  $$('.tab[data-view]').forEach((t) => {
     if (t.dataset.view === S.view) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
   });
-  document.querySelectorAll('.tab[data-set]').forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.set === S.set)));
+  $$('.tab[data-set]').forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.set === S.set)));
   document.title = `${VIEW_NAMES[S.view]} · ${S.C.name} · SpacedCube`;
   const app = document.getElementById('app');
   const key = focusKey(document.activeElement);
@@ -35,14 +36,14 @@ export function render() {
   else if (S.view === 'progress') { app.innerHTML = progressView(); fillCharts(); }
   else app.innerHTML = optionsView();
   if (key && S.dialogId == null) {
-    const again = app.querySelector(key);
+    const again = /** @type {HTMLElement | null} */ (app.querySelector(key));
     if (again) again.focus({ preventScroll: true });
   }
   renderDialog();
 }
 
 // The small status in the header; only touched when it changes, so screen readers are not spammed.
-const SYNC_LABEL = { local: 'Saved in this browser', signedout: 'Saved in this browser', connecting: 'Connecting…', synced: 'Synced', offline: 'Sync paused' };
+const SYNC_LABEL = { local: 'Saved in this browser', signedout: 'Saved in this browser', connecting: 'Connecting…', synced: 'Synced', offline: 'Sync paused', update: 'Update needed' };
 export function renderSync() {
   const el = document.getElementById('sync');
   const txt = S.storageOK || Sync.status === 'synced' ? SYNC_LABEL[Sync.status] : 'Not saved';
@@ -63,6 +64,17 @@ export function showView(view) {
   window.scrollTo(0, 0);
   const h = document.getElementById('view-title');
   if (h) h.focus({ preventScroll: true });
+}
+
+// A bar at the bottom of the page asking to reload (new version installed, or newer data seen).
+export function showReloadBar(text) {
+  let bar = document.getElementById('update');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'update'; bar.className = 'update'; bar.setAttribute('role', 'status');
+    document.body.appendChild(bar);
+  }
+  bar.innerHTML = `<span>${text}</span><button type="button" class="btn small primary" data-action="reload">Reload</button>`;
 }
 
 onAction({

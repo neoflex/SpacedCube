@@ -3,16 +3,17 @@ import { S, hooks, initState } from './app/state.js';
 import { listen } from './app/actions.js';
 import { Supa } from './app/supabase.js';
 import { Sync } from './app/sync.js';
-import { render, renderSync } from './app/render.js';
+import { render, renderSync, showReloadBar } from './app/render.js';
 import { listenKeys } from './app/keys.js';
 import { listenCharts } from './app/charts.js';
 import { listenAccount, takeRedirect } from './app/account.js';
 
-initState();
-Supa.load();
 hooks.render = render;
 hooks.afterSave = (set) => Sync.schedule(set);
+hooks.newerData = () => showReloadBar('Your progress was saved by a newer version of SpacedCube. Reload to update before practising.');
 Sync.onStatus = renderSync;
+initState();
+Supa.load();
 document.body.classList.toggle('no-shortcuts', !S.shortcuts);
 
 listen();
@@ -30,13 +31,7 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
   const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register('sw.js').catch(() => {});
   if (hadController) {
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (document.getElementById('update')) return;
-      const bar = document.createElement('div');
-      bar.id = 'update'; bar.className = 'update'; bar.setAttribute('role', 'status');
-      bar.innerHTML = '<span>A new version of SpacedCube is ready.</span><button type="button" class="btn small primary" data-action="reload">Reload</button>';
-      document.body.appendChild(bar);
-    });
+    navigator.serviceWorker.addEventListener('controllerchange', () => showReloadBar('A new version of SpacedCube is ready.'));
   }
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => {});

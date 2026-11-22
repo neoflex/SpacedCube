@@ -4,11 +4,12 @@ Serves dist/pwa on localhost (service workers need https or localhost), with con
 same server. Checks: manifest and service worker, sign-in by email code, pull of a newer remote state,
 push after an attempt, offline reload from the cache, sign-out. Prints "pwa: ok" or the failures.
 """
-import asyncio, base64, json, os, pathlib, threading, time
+import asyncio, base64, json, os, pathlib, subprocess, sys, tempfile, threading, time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from playwright.async_api import async_playwright
+from helpers import ROOT as REPO, BROWSER, CSP_INIT, launch, wait_until, csp_violations
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent / 'dist'
+ROOT = None  # the test's own build, set in main()
 UID = '11111111-2222-3333-4444-555555555555'
 db = {}       # (user_id, set) -> row
 log = []      # (method, path)
@@ -43,11 +44,6 @@ class H(SimpleHTTPRequestHandler):
         return self.headers.get('Authorization', '').startswith('Bearer ') and self.headers.get('apikey') == 'anon-key'
 
     def do_GET(self):
-        if self.path == '/config.js':
-            port = self.server.server_address[1]
-            js = f"window.SPACEDCUBE_CONFIG = {{ supabaseUrl: 'http://localhost:{port}/', supabaseKey: 'anon-key', allowSignup: true, turnstileSiteKey: 'test-site-key' }};".encode()
-            self.send_response(200); self.send_header('Content-Type', 'text/javascript'); self.send_header('Content-Length', str(len(js))); self.end_headers(); self.wfile.write(js)
-            return
         if self.path.startswith('/rest/v1/progress'):
             log.append(('GET', self.path))
             if not self.authed(): return self.send_json(401, {'message': 'no'})
@@ -85,18 +81,26 @@ class H(SimpleHTTPRequestHandler):
 
 
 async def main():
+    global ROOT
     srv = ThreadingHTTPServer(('127.0.0.1', 0), H)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
     url = f'http://localhost:{srv.server_address[1]}/'
+    # Build the app as a deployment would, with this mock as its sync server and a Turnstile key,
+    # so the generated config.js and Content Security Policy are what gets tested.
+    ROOT = pathlib.Path(tempfile.mkdtemp(prefix='spacedcube-pwa-')) / 'dist'
+    env = {**os.environ, 'SUPABASE_URL': url.rstrip('/'), 'SUPABASE_PUBLISHABLE_KEY': 'anon-key', 'ALLOW_SIGNUP': 'true',
+           'TURNSTILE_SITE_KEY': 'test-site-key', 'PRIVACY_CONTACT_EMAIL': 'privacy@example.com'}
+    subprocess.run([sys.executable, str(REPO / 'build.py'), '--out', str(ROOT)], env=env, check=True, stdout=subprocess.DEVNULL)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
     fails, errs = [], []
     def check(cond, what):
         if not cond: fails.append(what)
 
     # A newer OLL state on the server, as if saved from another device.
     async with async_playwright() as p:
-        b = await p.chromium.launch(executable_path=os.environ.get('CHROME') or None, args=['--no-sandbox'])
+        b = await launch(p)
         ctx = await b.new_context(viewport={'width': 390, 'height': 844})
         await ctx.route('https://challenges.cloudflare.com/**', lambda r: r.fulfill(content_type='text/javascript', body=FAKE_TURNSTILE))
+        await ctx.add_init_script(CSP_INIT)
         pg = await ctx.new_page()
         pg.on('pageerror', lambda e: errs.append(str(e)))
         hosts = []   # every host the page or its service worker asks for
@@ -105,8 +109,9 @@ async def main():
         check(await pg.locator('link[rel=manifest]').count() == 1, 'manifest link')
         manifest = json.loads((ROOT / 'manifest.webmanifest').read_text())
         check({i['sizes'] for i in manifest['icons']} >= {'192x192', '512x512'}, 'manifest icons')
-        await pg.wait_for_function('navigator.serviceWorker.controller !== null || navigator.serviceWorker.ready.then(()=>true)')
-        await pg.evaluate('navigator.serviceWorker.ready')
+        await pg.evaluate('navigator.serviceWorker.ready.then(() => true)')
+        csp = await pg.get_attribute('meta[http-equiv="Content-Security-Policy"]', 'content')
+        check(f"connect-src 'self' {url.rstrip('/')}" in csp and 'script-src \'self\' https://challenges.cloudflare.com' in csp, f'CSP built from the settings: {csp}')
         check(await pg.text_content('#sync') == 'Saved in this browser', 'signed-out status')
         await pg.evaluate('document.fonts.ready')
         check(await pg.evaluate("[...document.fonts].some(f => f.family === 'IBM Plex Sans' && f.status === 'loaded') && [...document.fonts].some(f => f.family.includes('Archivo') && f.status === 'loaded')"), 'self-hosted fonts loaded')
@@ -122,7 +127,7 @@ async def main():
         other = sorted({h for h in hosts if not h.startswith('localhost')})
         check(not other, f'no third-party request before sign-in starts (got {other})')
         await pg.focus('#auth-email')
-        await pg.wait_for_function("document.querySelector('#captcha') && document.querySelector('#captcha').textContent === 'check'")
+        await wait_until(pg, "document.querySelector('#captcha') && document.querySelector('#captcha').textContent === 'check'")
         await pg.wait_for_timeout(100)
         await pg.fill('#auth-email', 'blocked@example.com'); await pg.click('[data-form=email] button')
         await pg.wait_for_selector('.account .msg.err')
@@ -135,7 +140,7 @@ async def main():
         check('wrong or has expired' in (await pg.text_content('.account .msg.err')), 'bad code message')
         await pg.fill('#auth-code', '123 456'); await pg.click('[data-form=code] button.primary')
         await pg.wait_for_selector('text=Signed in as')
-        await pg.wait_for_function("document.querySelector('#sync').dataset.s === 'synced'")
+        await wait_until(pg, "document.querySelector('#sync').dataset.s === 'synced'")
         st = await pg.evaluate("JSON.parse(localStorage.getItem('oll-trainer-v1'))")
         check(st and st['cases']['27']['level'] == 4 and st['setupDone'], 'remote state pulled into local storage')
 
@@ -158,9 +163,9 @@ async def main():
         if not await pg.locator('[data-action=watch-current]').count():
             await pg.click('[data-action=reveal]'); await pg.click('[data-action=reveal-yes]')
         await pg.click('[data-action=watch-current]')
-        await pg.wait_for_function('!!window.THREE', timeout=10000)
+        await wait_until(pg, '!!window.THREE', timeout=10)
         await pg.keyboard.press('Escape')
-        await pg.wait_for_function("['offline','synced'].includes(document.querySelector('#sync').dataset.s)")
+        await wait_until(pg, "['offline','synced'].includes(document.querySelector('#sync').dataset.s)")
         await ctx.set_offline(False)
 
         # Sign out keeps local progress.
@@ -174,7 +179,7 @@ async def main():
 
         # Magic-link redirect: tokens in the fragment sign the page in and are removed from the URL.
         await pg.goto(url + '#access_token=' + jwt(UID, 'me@example.com') + '&refresh_token=r2&expires_in=3600&token_type=bearer&type=magiclink')
-        await pg.wait_for_function("document.querySelector('#sync').dataset.s === 'synced'")
+        await wait_until(pg, "document.querySelector('#sync').dataset.s === 'synced'")
         check('access_token' not in pg.url, 'fragment cleared')
 
         # Delete account: server rows go, local progress stays.
@@ -187,7 +192,8 @@ async def main():
         check(st['cases']['27']['level'] == 4, 'local progress kept after delete')
         check(await pg.locator('a[href="privacy.html"]').count() == 1, 'privacy link')
         r = await pg.request.get(url + 'privacy.html')
-        check(r.ok and '<h1>Privacy</h1>' in await r.text(), 'privacy page served')
+        txt = await r.text()
+        check(r.ok and 'Delete account' in txt and 'privacy@example.com' in txt and 'Turnstile' in txt, 'privacy page filled in from the settings')
 
 
         # Backup code of the other set restores into that set.
@@ -198,10 +204,12 @@ async def main():
         check(await pg.get_attribute('.tab[data-set="PLL"]', 'aria-pressed') == 'true', 'switched to PLL')
         st = await pg.evaluate("JSON.parse(localStorage.getItem('oll-trainer-v1'))")
         check(st['cases']['27']['level'] == 4, 'OLL untouched by PLL import')
+        errs.extend('CSP: ' + v for v in await csp_violations(pg))
         await b.close()
     srv.shutdown()
     other = sorted({h for h in hosts if not h.startswith('localhost')} - {'challenges.cloudflare.com'})
     if other: fails.append(f'unexpected hosts {other}')
+    print(f'[{BROWSER}]', end=' ')
     print('pwa: ok' if not fails and not errs else f'pwa: FAIL {fails} errors: {errs}')
 
 asyncio.run(main())

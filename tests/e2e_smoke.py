@@ -2,29 +2,23 @@
 unrendered placeholders (${, undefined, NaN), page errors, and accessibility (axe-core, WCAG 2.2 A and AA).
 Run `npm install` once for axe-core. Prints "found: [] errors: [] a11y: []" when everything passes.
 """
-import asyncio, os, pathlib, threading
-from functools import partial
-from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+import asyncio
 from playwright.async_api import async_playwright
+from helpers import ROOT, BROWSER, CSP_INIT, launch, serve, csp_violations
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
 AXE = (ROOT / 'node_modules' / 'axe-core' / 'axe.min.js').read_text()
 TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice']
 
 
-class Quiet(SimpleHTTPRequestHandler):
-    def log_message(self, *a): pass
-
 
 async def main():
-    srv = ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(ROOT / 'dist')))
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    url = f'http://127.0.0.1:{srv.server_address[1]}/'
+    srv, url = serve(ROOT / 'dist')
     found, errs, a11y = [], [], {}
     async with async_playwright() as p:
-        b = await p.chromium.launch(executable_path=os.environ.get('CHROME') or None, args=['--no-sandbox'])
+        b = await launch(p)
         for scheme in ['light', 'dark']:
             ctx = await b.new_context(viewport={'width': 1280, 'height': 900}, color_scheme=scheme, reduced_motion='reduce', service_workers='block')
+            await ctx.add_init_script(CSP_INIT)
             pg = await ctx.new_page()
             pg.on('pageerror', lambda e: errs.append(str(e)))
             await pg.goto(url)
@@ -35,7 +29,7 @@ async def main():
                 if '${' in t or 'undefined' in t or 'NaN' in t:
                     found.append((where, [l for l in t.split('\n') if '${' in l or 'undefined' in l or 'NaN' in l][:3]))
                 if not await pg.evaluate('!!window.axe'):
-                    await pg.add_script_tag(content=AXE)
+                    await pg.evaluate(AXE)   # evaluated, not injected as <script>: the page's CSP stays in force
                 res = await pg.evaluate('(tags) => axe.run(document, { runOnly: { type: "tag", values: tags }, resultTypes: ["violations"] })', TAGS)
                 for v in res['violations']:
                     key = f"{v['id']} ({v['impact']})"
@@ -69,11 +63,13 @@ async def main():
                     await pg.click(f'[data-action="panel"][data-p="{pnl}"]'); await scan(S + ' panel ' + pnl)
                 await pg.click('#tab-practice')
                 if scheme == 'dark': break   # contrast in dark mode: one set is enough
+            errs.extend('CSP: ' + v for v in await csp_violations(pg))
             await ctx.close()
         await b.close()
     srv.shutdown()
     for k, v in sorted(a11y.items()):
         print(f"a11y {k}: {v['help']}\n    where: {', '.join(sorted(v['where']))[:300]}\n    nodes: {', '.join(sorted(v['nodes']))[:300]}")
+    print(f'[{BROWSER}]', end=' ')
     print('found:', found, 'errors:', errs, 'a11y:', sorted(a11y))
 
 

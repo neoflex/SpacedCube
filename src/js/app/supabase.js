@@ -33,7 +33,7 @@ export const Supa = {
     try { res = await withTimeout(fetch(this.url + path, { method: opt.method, body: opt.body, headers }), 15000); }
     catch (e) { throw { code: e && e.code === 'timeout' ? 'timeout' : 'unavailable' }; }
     if (res.status === 401 && auth && !opt.retried) { await this.refresh(); return this.req(path, { ...opt, retried: true }, auth); }
-    let body = null;
+    let body;
     const text = await res.text();
     try { body = text ? JSON.parse(text) : null; } catch (e) { body = null; }
     if (!res.ok) throw { code: res.status >= 500 || res.status === 429 ? 'unavailable' : 'http', status: res.status, msg: (body && (body.msg || body.message || body.error_description || body.error)) || '' };

@@ -1,6 +1,11 @@
 // Small helpers shared by the views.
 
-export const $ = (sel, el = document) => el.querySelector(sel);
+/** @param {string} sel @param {ParentNode} [el] @returns {HTMLElement & HTMLInputElement} the first match (the views query their own controls) */
+export const $ = (sel, el = document) => /** @type {any} */ (el.querySelector(sel));
+/** All matches, as HTML elements. @param {string} sel @param {ParentNode} [el] @returns {HTMLElement[]} */
+export const $$ = (sel, el = document) => /** @type {HTMLElement[]} */ ([...el.querySelectorAll(sel)]);
+/** An event's target as an element (null for text nodes and the like). @param {Event} e @returns {HTMLElement | null} */
+export const target = (e) => (e.target instanceof Element ? /** @type {HTMLElement} */ (e.target) : null);
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const pct = (cs) => (cs.n ? Math.round((100 * cs.ok) / cs.n) + '%' : '');

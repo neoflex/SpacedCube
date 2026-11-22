@@ -1,7 +1,7 @@
 // 3D viewer: plays an algorithm on a cube, slowly. three.js (served by the app) loads on first use.
 import * as K from '../core/index.js';
 import { S } from './state.js';
-import { esc, prefersReducedMotion } from './util.js';
+import { $, $$, esc, prefersReducedMotion } from './util.js';
 import { algFor, label } from './diagrams.js';
 import { onAction } from './actions.js';
 import { modalOpened, modalClosed } from './modal.js';
@@ -47,7 +47,7 @@ function openViewer({ title, sub, start, seq }) {
     <p class="muted" style="margin:0;font-size:12px" id="v-help">Drag the cube to look around. Yellow on top, green in front, like the scramble. Keys: Space plays or pauses, arrows step through the moves.</p>
   </div></div>`;
   modalOpened('viewer');
-  box.querySelector('[data-action="v-play"]').focus();
+  $('[data-action="v-play"]', box).focus();
   loadThree().then(() => { if (V) buildScene(); }).catch(() => {
     const st = document.getElementById('v-stage');
     if (st) st.innerHTML = '<p class="muted v-msg">The 3D viewer could not load. Check your connection and try again.</p>';
@@ -165,7 +165,7 @@ function buildScene() {
 }
 
 function markMove() {
-  document.querySelectorAll('#v-moves li').forEach((el) => {
+  $$('#v-moves li').forEach((el) => {
     const k = Number(el.dataset.k);
     el.classList.toggle('done', k < V.i); el.classList.toggle('now', k === V.i);
   });
@@ -214,7 +214,7 @@ function watchCase(id) {
   const { C } = S;
   const shown = algFor(id);
   const ft = K.toFaceTurns(K.parse(shown));
-  let start = K.invert(ft);
+  const start = K.invert(ft);
   const p = C.solvePath(start, shown);
   openViewer({
     title: `${label(id)}`, sub: 'Starting from the case as shown in its diagram.',

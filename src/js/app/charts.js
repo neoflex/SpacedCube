@@ -1,7 +1,7 @@
 // Progress charts: SVG drawn at the container's real width so text keeps its true size.
 // Mouse and touch show a tooltip; the same numbers are in the table below the charts.
 import { S } from './state.js';
-import { esc, dayKey, fmtDay } from './util.js';
+import { $, $$, esc, dayKey, fmtDay, target } from './util.js';
 
 let data = [];
 let W = 720;
@@ -130,7 +130,7 @@ function tipHtml(kind, i) {
 export function fillCharts() {
   if (!data.length) return;
   const draw = { lv: levelChart, at: attemptsChart, sr: successChart };
-  document.querySelectorAll('.chartwrap[data-chart]').forEach((wrap) => {
+  $$('.chartwrap[data-chart]').forEach((wrap) => {
     W = Math.max(260, Math.floor(wrap.clientWidth));
     const old = wrap.querySelector('svg'); if (old) old.remove();
     wrap.insertAdjacentHTML('afterbegin', draw[wrap.dataset.chart]());
@@ -138,11 +138,11 @@ export function fillCharts() {
 }
 
 function showTip(e) {
-  const t = e.target.closest && e.target.closest('[data-tip]');
-  document.querySelectorAll('.chartwrap .tip').forEach((tip) => { if (!t || !tip.parentElement.contains(t)) tip.hidden = true; });
+  const t = /** @type {HTMLElement | null} */ (target(e)?.closest('[data-tip]'));
+  $$('.chartwrap .tip').forEach((tip) => { if (!t || !tip.parentElement.contains(t)) tip.hidden = true; });
   document.querySelectorAll('.chart .hl').forEach((el) => el.remove());
   if (!t) return;
-  const wrap = t.closest('.chartwrap'), tip = wrap.querySelector('.tip');
+  const wrap = t.closest('.chartwrap'), tip = $('.tip', wrap);
   tip.innerHTML = tipHtml(t.dataset.tip, Number(t.dataset.i));
   tip.hidden = false;
   const hl = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -158,7 +158,7 @@ function showTip(e) {
 
 export function listenCharts() {
   document.addEventListener('mousemove', (e) => { if (S.view === 'progress') showTip(e); });
-  document.addEventListener('click', (e) => { if (S.view === 'progress' && e.target.closest('[data-tip]')) showTip(e); });
+  document.addEventListener('click', (e) => { if (S.view === 'progress' && target(e)?.closest('[data-tip]')) showTip(e); });
   let timer = null;
   window.addEventListener('resize', () => { clearTimeout(timer); timer = setTimeout(() => { if (S.view === 'progress') fillCharts(); }, 150); });
 }

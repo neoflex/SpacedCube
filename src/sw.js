@@ -3,7 +3,7 @@
 const VERSION = '@VERSION@';
 const SHELL = 'shell-' + VERSION;
 // Every file of the app, listed by the build. All are same-origin: the app contacts no CDN.
-const FILES = ['./', ...@FILES@];
+const FILES = ['./', .../*@FILES@*/[]];
 
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {

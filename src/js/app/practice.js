@@ -12,7 +12,7 @@ export const newScramble = (id) => K.fmt(S.C.makeScramble(id, rng, { randomPLL: 
 
 export function nextCase() {
   const { C, state } = S;
-  let isNew = false, id = null;
+  let isNew = false, id;
   if (C.shouldIntroduce(state)) {
     id = C.nextToIntroduce(state);
     C.introduce(state, id, 0);

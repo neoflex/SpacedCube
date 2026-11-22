@@ -5,6 +5,7 @@ import { parse, fmt, invert, toFaceTurns, simplify } from './notation.js';
 import { f2lIntact, llOriented, solvedFixed, topPattern, patKey, patKeys4, llSideKey, pllKeys, pllArrows, sideColors } from './inspect.js';
 import { MAX_LEVEL, INTERVALS, GAP_MS, bucketOf, BUCKETS, successRate, lastMissRep } from './scheduler.js';
 import { PLL_DEF } from './cases-pll.js';
+import { SCHEMA_VERSION, migrate } from './schema.js';
 
 // Face turns of every PLL, used to disguise scrambles.
 export const PLL_FT_ALL = PLL_DEF.RAW.map(([, , a]) => toFaceTurns(parse(a)));
@@ -153,14 +154,17 @@ export function makeSet(def) {
     const cases = {};
     for (const id of CASE_IDS) cases[id] = { active: false, level: 0, n: 0, ok: 0, last: -1, lastTs: 0, hist: '', removed: false, lastMiss: -1 };
     return {
-      v: 1, rep: 0, cases, custom: {}, setupDone: false, lastCase: null, prevCase: null,
+      v: SCHEMA_VERSION, rep: 0, cases, custom: {}, setupDone: false, lastCase: null, prevCase: null,
       settings: { autoIntro: true, introLevel: 3, randomPLL: true, showFirst: false, pool: 3 },
       updatedAt: 0,
     };
   }
-  function normalize(s) {
+  // Any saved state (old, partial, from a backup code) to a complete current one.
+  // Throws NewerStateError for a state written by a newer version of the app.
+  function normalize(raw) {
     const f = freshState();
-    if (!s || typeof s !== 'object') return f;
+    if (!raw || typeof raw !== 'object') return f;
+    const s = migrate(raw);
     const out = { ...f, ...s, settings: { ...f.settings, ...(s.settings || {}) }, custom: { ...(s.custom || {}) }, cases: {} };
     for (const id of CASE_IDS) out.cases[id] = { ...f.cases[id], ...((s.cases || {})[id] || {}) };
     out.lastCase = out.lastCase == null ? null : String(out.lastCase);

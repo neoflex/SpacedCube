@@ -2,30 +2,25 @@
 (focus moves in, the page behind is inert, focus returns to the opener), and the shortcut switch.
 Prints "keyboard: ok" or the failures.
 """
-import asyncio, os, pathlib, threading
-from functools import partial
-from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+import asyncio
 from playwright.async_api import async_playwright
+from helpers import ROOT, BROWSER, CSP_INIT, launch, serve, wait_until, csp_violations
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-
-class Quiet(SimpleHTTPRequestHandler):
-    def log_message(self, *a): pass
 
 
 async def main():
-    srv = ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(ROOT / 'dist')))
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    url = f'http://127.0.0.1:{srv.server_address[1]}/'
+    srv, url = serve(ROOT / 'dist')
     fails, errs = [], []
 
     def check(cond, what):
         if not cond: fails.append(what)
 
     async with async_playwright() as p:
-        b = await p.chromium.launch(executable_path=os.environ.get('CHROME') or None, args=['--no-sandbox'])
-        pg = await (await b.new_context(service_workers='block', reduced_motion='reduce')).new_page()
+        b = await launch(p)
+        ctx = await b.new_context(service_workers='block', reduced_motion='reduce')
+        await ctx.add_init_script(CSP_INIT)
+        pg = await ctx.new_page()
         pg.on('pageerror', lambda e: errs.append(str(e)))
         focused = lambda: pg.evaluate("(() => { const a = document.activeElement; return a ? (a.id || a.dataset.action || a.tagName) : null; })()")
         await pg.goto(url)
@@ -47,7 +42,7 @@ async def main():
         await pg.focus('[data-action="grade"][data-ok="1"]')
         await pg.keyboard.press('Enter')
         check(await focused() == 'grade', 'focus kept on the grade button')
-        await pg.wait_for_function("document.getElementById('announcer').textContent.length > 0")
+        await wait_until(pg, "document.getElementById('announcer').textContent.length > 0")
         check('Got it' in await pg.text_content('#announcer'), 'grade announced')
 
         # Shortcuts: arrows grade; Space on a focused button presses that button instead.
@@ -84,8 +79,10 @@ async def main():
         await pg.reload()
         await pg.wait_for_selector('#app > *')
         check(await pg.evaluate("document.body.classList.contains('no-shortcuts')"), 'shortcut setting kept')
+        errs.extend('CSP: ' + v for v in await csp_violations(pg))
         await b.close()
     srv.shutdown()
+    print(f'[{BROWSER}]', end=' ')
     print('keyboard: ok' if not fails and not errs else f'keyboard: FAIL {fails} errors: {errs}')
 
 

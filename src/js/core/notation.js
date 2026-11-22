@@ -3,7 +3,7 @@
 
 const TOKEN_RE = /([RLUDFBMESrludfbxyz])(w?)(\d*)('?)/g;
 export function parse(alg) {
-  const s = String(alg).replace(/[’`´]/g, "'").replace(/[()\[\]{}]/g, ' ');
+  const s = String(alg).replace(/[’`´]/g, "'").replace(/[()[\]{}]/g, ' ');
   const rest = s.replace(TOKEN_RE, '').trim();
   if (rest.length) throw new Error('Unrecognised notation: "' + rest.split(/\s+/)[0] + '"');
   const out = [];
@@ -28,7 +28,7 @@ export const invert = (mvs) => mvs.slice().reverse().map((m) => ({ f: m.f, a: (4
 // Translate any sequence (wide moves, slices, rotations) into outer face turns
 // relative to fixed centers. Final cube rotation is dropped.
 export function toFaceTurns(mvs) {
-  let map = { U: 'U', D: 'D', R: 'R', L: 'L', F: 'F', B: 'B' }; // held face -> physical face
+  const map = { U: 'U', D: 'D', R: 'R', L: 'L', F: 'F', B: 'B' }; // held face -> physical face
   const out = [];
   const inv = (a) => (4 - a) % 4;
   const rot = (axis, a) => {

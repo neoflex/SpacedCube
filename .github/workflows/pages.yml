@@ -1,8 +1,9 @@
-# Tests the app, then builds it with this repository's settings and publishes it to GitHub Pages.
-# Pull requests run the tests only.
+# Checks and tests the app, then builds it with this repository's settings and publishes it to
+# GitHub Pages. Pull requests (and manual runs on other branches) run the checks and tests only.
 #
 # Deployment settings come from repository variables (Settings > Secrets and variables > Actions >
 # Variables), so the code holds nothing specific to one deployment. See README, "Deploying your own copy".
+# Actions are pinned to commits; Dependabot keeps the pins current.
 name: Build, test and deploy
 
 on:
@@ -19,39 +20,75 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  checks:
+    name: Lint, types and unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npx eslint .
+      - name: Type check
+        run: npx tsc -p .
+      - name: Unit tests
+        run: node --test "tests/unit/*.test.js"
+      - name: Core checks
+        run: |
+          node tests/test_core.js | tee core.log && tail -1 core.log | grep -q 'fail 0$'
+
+  e2e:
+    name: Browser tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      BROWSER: ${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
-      - uses: actions/setup-node@v4
+          cache: pip
+          cache-dependency-path: tests/requirements.txt
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '20'
+          node-version: '22'
+          cache: npm
       - name: Install test tools
         run: |
           npm ci
-          pip install playwright
-          python -m playwright install --with-deps chromium
-      # Tests run on a build without deployment settings (sync is mocked where it is tested).
+          pip install -r tests/requirements.txt
+          python -m playwright install --with-deps ${{ matrix.browser }}
+      # A build without deployment settings (the sync test builds its own, against a mock server).
       - name: Build for tests
+        run: python3 build.py
+      - name: Every screen, with axe
         run: |
-          python3 build.py
-      - name: Core tests
+          python3 tests/e2e_smoke.py | tee smoke.log && grep -q 'found: \[\] errors: \[\] a11y: \[\]$' smoke.log
+      - name: Keyboard and focus
         run: |
-          node tests/test_core.js | tee core.log && tail -1 core.log | grep -q 'fail 0$'
-      - name: Smoke and accessibility test
+          python3 tests/e2e_keyboard.py | tee keyboard.log && grep -q 'keyboard: ok$' keyboard.log
+      - name: Offline and sync
         run: |
-          python3 tests/e2e_smoke.py | tee smoke.log && grep -q '^found: \[\] errors: \[\] a11y: \[\]$' smoke.log
-      - name: Keyboard test
-        run: |
-          python3 tests/e2e_keyboard.py | tee keyboard.log && grep -q '^keyboard: ok$' keyboard.log
-      - name: PWA and sync test
-        run: |
-          python3 tests/e2e_pwa.py | tee pwa.log && grep -q '^pwa: ok$' pwa.log
-      - name: Build for deployment
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+          python3 tests/e2e_pwa.py | tee pwa.log && grep -q 'pwa: ok$' pwa.log
+
+  build:
+    name: Build for deployment
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [checks, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Build
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
@@ -62,15 +99,13 @@ jobs:
           PRIVACY_DATA_LOCATION: ${{ vars.PRIVACY_DATA_LOCATION }}
           PRIVACY_EMAIL_PROVIDER: ${{ vars.PRIVACY_EMAIL_PROVIDER }}
           PRIVACY_HOSTING: ${{ vars.PRIVACY_HOSTING }}
-        run: |
-          python3 build.py
-      - uses: actions/upload-pages-artifact@v3
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: python3 build.py
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist
 
   deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    name: Publish to GitHub Pages
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -81,4 +116,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

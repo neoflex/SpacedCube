@@ -32,7 +32,17 @@ export const S = {
 };
 
 // Hooks set by main.js, so modules need not import each other in a circle.
-export const hooks = { render: () => {}, afterSave: () => {} };
+/** @type {{ render: () => void, afterSave: (set: string) => void, newerData: (set: string) => void }} */
+export const hooks = { render: () => {}, afterSave: () => {}, newerData: () => {} };
+
+// Sets whose saved progress was written by a newer version of the app. This version keeps
+// working in memory but never writes them, so nothing newer is lost; the user is asked to reload.
+export const locked = new Set();
+export function lockSet(name) {
+  if (locked.has(name)) return;
+  locked.add(name);
+  hooks.newerData(name);
+}
 export const render = () => hooks.render();
 
 // ---------- Local storage ----------
@@ -41,6 +51,7 @@ export function loadLocal(name) {
   catch (e) { S.storageOK = false; return null; }
 }
 export function saveLocalFor(name, st) {
+  if (locked.has(name)) return;
   try { localStorage.setItem(KEYS[name], JSON.stringify(st)); S.storageOK = true; }
   catch (e) { S.storageOK = false; }
 }
@@ -51,7 +62,13 @@ export function initState() {
   try { const v = localStorage.getItem(SET_KEY); if (v && K.sets[v]) S.set = v; } catch (e) { /* storage blocked */ }
   try { S.shortcuts = localStorage.getItem(SHORTCUTS_KEY) !== 'off'; } catch (e) { /* storage blocked */ }
   for (const n of Object.keys(K.sets)) {
-    const st = K.sets[n].normalize(loadLocal(n));
+    let st;
+    try { st = K.sets[n].normalize(loadLocal(n)); }
+    catch (e) {
+      if (!(e instanceof K.NewerStateError)) throw e;
+      st = K.sets[n].freshState();
+      lockSet(n);
+    }
     ctx[n] = { state: st, current: null, lastResult: null, undo: null, view: st.setupDone ? 'practice' : 'cases' };
   }
   S.C = K.sets[S.set];
@@ -92,7 +109,15 @@ export function save() {
   trimDaily();
   S.state.updatedAt = Date.now();
   saveLocalFor(S.set, S.state);
-  hooks.afterSave(S.set);
+  if (!locked.has(S.set)) hooks.afterSave(S.set);
+}
+
+// A backup code holds one set's state. Which set? The one all its case ids belong to (null if none).
+export function backupOwner(obj) {
+  if (!obj || typeof obj !== 'object' || !obj.cases || typeof obj.cases !== 'object') return null;
+  const ids = Object.keys(obj.cases);
+  if (!ids.length) return null;
+  return Object.keys(K.sets).find((n) => ids.every((id) => K.sets[n].CASES[id])) || null;
 }
 
 export function switchSet(name) {

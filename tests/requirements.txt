@@ -1,0 +1,2 @@
+# Browser tests (tests/e2e_*.py). Install with: pip install -r tests/requirements.txt
+playwright==1.65.2

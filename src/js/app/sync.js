@@ -2,14 +2,15 @@
 // Local storage is always written first; on load, on return to the tab and when back online,
 // the copy with the newest updatedAt wins (whole state, per set).
 import * as K from '../core/index.js';
-import { S, ctx, getState, saveLocalFor, render } from './state.js';
+import { S, ctx, getState, saveLocalFor, render, locked, lockSet } from './state.js';
 import { Supa } from './supabase.js';
 
 const transient = (e) => { const c = e && e.code; return c === 'unavailable' || c === 'timeout'; };
 
 export const Sync = {
-  // local (no server) | signedout | connecting | synced | offline
+  // local (no server) | signedout | connecting | synced | offline | update (server has newer-format data)
   status: 'local', live: false, writing: {}, again: {}, timer: {}, lastInit: 0,
+  /** @type {(status: string) => void} */
   onStatus: () => {},
   set(st) {
     this.status = st;
@@ -30,9 +31,14 @@ export const Sync = {
     if (e && e.code === 'signed_out') { this.set('signedout'); render(); return; }
     this.set('offline');
   },
-  async pullAll() { for (const n of Object.keys(K.sets)) await this.pull(n); this.set('synced'); },
+  async pullAll() {
+    for (const n of Object.keys(K.sets)) await this.pull(n);
+    this.set(locked.size ? 'update' : 'synced');
+  },
   async pull(n) {
     const remote = await Supa.getProgress(n);
+    // Written by a newer version of the app (on another device): neither read nor overwrite it.
+    if (K.isNewer(remote)) { lockSet(n); return; }
     const local = getState(n);
     if (remote && typeof remote === 'object' && (remote.updatedAt || 0) > (local.updatedAt || 0)) {
       const st = K.sets[n].normalize(remote);
@@ -56,7 +62,7 @@ export const Sync = {
     this.timer[n] = setTimeout(() => this.push(n), 1500);
   },
   async push(n) {
-    if (!this.live) return;
+    if (!this.live || locked.has(n)) return;
     if (this.writing[n]) { this.again[n] = true; return; }
     this.writing[n] = true;
     try {
