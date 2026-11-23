@@ -40,6 +40,7 @@ jobs:
   e2e:
     name: Browser tests (${{ matrix.browser }})
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -51,8 +52,25 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      # Browsers are cached per Playwright version: the download server can be slow, and only an
+      # update of Playwright needs a new download. System libraries are installed every time.
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache ${{ matrix.browser }}
+        id: browser-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.pw.outputs.version }}-${{ matrix.browser }}
       - name: Install ${{ matrix.browser }}
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 10
         run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Install system libraries for ${{ matrix.browser }}
+        if: steps.browser-cache.outputs.cache-hit == 'true'
+        timeout-minutes: 10
+        run: npx playwright install-deps ${{ matrix.browser }}
       # The tests build dist/ without deployment settings first; the sync test builds its own copy
       # against a mock server.
       - name: Every screen with axe, keyboard and focus, offline and sync
