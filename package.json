@@ -2,18 +2,21 @@
   "name": "spacedcube",
   "private": true,
   "type": "module",
-  "description": "Spaced practice for OLL and PLL. The app needs no build tools; these are the checks and tests.",
+  "description": "Spaced practice for OLL and PLL. The app needs no build tools at runtime; these scripts build it and run the checks.",
   "license": "MIT",
   "scripts": {
-    "build": "python3 build.py",
+    "build": "node build.mjs",
+    "start": "node build.mjs && node tests/e2e/serve.mjs",
     "lint": "eslint .",
     "typecheck": "tsc -p .",
-    "test:unit": "node --test \"tests/unit/*.test.js\" && node tests/test_core.js",
-    "test:e2e": "python3 tests/e2e_smoke.py && python3 tests/e2e_keyboard.py && python3 tests/e2e_pwa.py",
-    "check": "npm run lint && npm run typecheck && npm run test:unit"
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:e2e": "playwright test",
+    "check": "npm run lint && npm run typecheck && npm run test:unit",
+    "test": "npm run check && npm run test:e2e"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.65.1",
     "axe-core": "4.14.1",
     "eslint": "10.15.0",
     "globals": "17.14.0",

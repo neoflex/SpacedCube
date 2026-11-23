@@ -10,7 +10,7 @@ You will get an answer within a week. Fixes are deployed as soon as they are rea
 
 - The app in this repository (`src/`) and the copy published from it.
 - The sync backend as set up by `supabase/schema.sql`: table, row-level security and `delete_my_account()`.
-- The build and its Content Security Policy (`build.py`).
+- The build and its Content Security Policy (`build.mjs`).
 
 Out of scope: denial-of-service and volume tests, spam to the sign-in form, and problems in Supabase, Cloudflare or GitHub themselves (report those to them).
 

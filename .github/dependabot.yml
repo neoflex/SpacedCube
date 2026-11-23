@@ -1,7 +1,7 @@
 # Weekly update pull requests. The CI runs every test on them before anything is merged.
 version: 2
 updates:
-  - package-ecosystem: npm          # test and check tools only (axe-core, eslint, typescript)
+  - package-ecosystem: npm          # build, check and test tools (Playwright, axe-core, eslint, typescript)
     directory: /
     schedule:
       interval: weekly
@@ -15,7 +15,3 @@ updates:
     groups:
       actions:
         patterns: ['*']
-  - package-ecosystem: pip          # Playwright for the browser tests
-    directory: /tests
-    schedule:
-      interval: weekly

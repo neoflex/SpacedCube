@@ -63,12 +63,13 @@ docs/screenshots/      Screenshots for this README.
 src/sw.js              Service worker (file list and version filled in by the build).
 src/fonts/, src/vendor/  Self-hosted fonts and three.js, with their licences.
 src/types.d.ts         Types of the few globals the app reads (for the type check).
-tools/icons.py         Draws the app icons (no dependencies).
+tools/icons.mjs        Draws the app icons (Node standard library only).
 supabase/schema.sql    Table, row-level security, grants and delete_my_account() for sync.
-build.py               Copies src/ to dist/ and generates config.js, the CSP, module preloads, privacy.html, icons and sw.js.
+build.mjs              Copies src/ to dist/ and generates config.js, the CSP, the footer, module preloads, privacy.html, icons and sw.js.
 tests/unit/            node:test unit tests: scheduler, saved-data versions, state, sync.
-tests/test_core.js     Every case and scramble checked in the simulator.
-tests/e2e_*.py         Browser tests (Playwright): every screen with axe, keyboard and focus, offline and sync.
+tests/unit/core.test.js  Every case and scramble checked in the simulator.
+tests/e2e/             Browser tests (Playwright Test): every screen with axe, keyboard and focus, offline and sync
+                       against a mock sync server. playwright.config.mjs runs them in Chromium, Firefox and WebKit.
 eslint.config.js, tsconfig.json   Lint and type check (plain JavaScript, checked with JSDoc).
 ```
 
@@ -77,19 +78,17 @@ There is no bundler and no runtime dependency: the browser loads the modules dir
 ## Build and test
 
 ```sh
-npm install                              # once: eslint, typescript, axe-core
-pip install -r tests/requirements.txt    # once: Playwright
-python -m playwright install chromium firefox webkit
+npm install                      # once: Playwright, axe-core, eslint, typescript
+npx playwright install           # once: the browsers for the tests
 
-npm run check                    # lint, type check, unit tests, core checks
-python3 build.py                 # -> dist/ (settings from environment variables, see below)
-python3 tests/e2e_smoke.py       # every screen; expects "found: [] errors: [] a11y: []"
-python3 tests/e2e_keyboard.py    # expects "keyboard: ok"
-python3 tests/e2e_pwa.py         # offline and sync; expects "pwa: ok"
-python3 -m http.server -d dist 8000   # try it at http://localhost:8000
+npm start                        # build and serve at http://localhost:8000
+npm test                         # everything: lint, type check, unit tests, browser tests in 3 engines
+npm run check                    # the quick part: lint, type check, unit tests
+npx playwright test --project=webkit   # browser tests in one engine
+npm run build                    # -> dist/ (settings from environment variables, see below)
 ```
 
-The browser tests run in Chromium by default; `BROWSER=firefox` or `BROWSER=webkit` picks another engine (CI runs all three: WebKit is what every browser on an iPhone uses). `CHROME=/path/to/chrome` makes Chromium use another binary. They also fail on any Content Security Policy violation.
+The browser tests run in Chromium, Firefox and WebKit (WebKit is what every browser on an iPhone uses). `CHROME=/path/to/chrome` makes Chromium use another binary. They fail on any page error, unrendered placeholder, accessibility violation or Content Security Policy violation. Only Node is needed: no Python, no bundler.
 
 ## How it works
 
@@ -128,7 +127,7 @@ Sync uses the `progress` table of the configured Supabase project, one row per u
 
 ## Deploying your own copy
 
-`.github/workflows/pages.yml` runs every test, then builds the app with the repository's settings and publishes `dist/` to GitHub Pages on each push to `main` (pull requests run the tests only). Any static host with HTTPS works too: run `python3 build.py` with the same environment variables and upload `dist/`.
+`.github/workflows/pages.yml` runs every test, then builds the app with the repository's settings and publishes `dist/` to GitHub Pages on each push to `main` (pull requests run the tests only). Any static host with HTTPS works too: run `node build.mjs` with the same environment variables and upload `dist/`.
 
 Nothing specific to a deployment lives in the code. The build reads these environment variables; in GitHub, set them as repository variables (Settings > Secrets and variables > Actions > Variables). All are optional and public by nature (they end up in the page):
 

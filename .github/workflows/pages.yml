@@ -34,11 +34,8 @@ jobs:
         run: npx eslint .
       - name: Type check
         run: npx tsc -p .
-      - name: Unit tests
+      - name: Unit tests (including every case and scramble in the simulator)
         run: node --test "tests/unit/*.test.js"
-      - name: Core checks
-        run: |
-          node tests/test_core.js | tee core.log && tail -1 core.log | grep -q 'fail 0$'
 
   e2e:
     name: Browser tests (${{ matrix.browser }})
@@ -47,36 +44,19 @@ jobs:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
-    env:
-      BROWSER: ${{ matrix.browser }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: '3.12'
-          cache: pip
-          cache-dependency-path: tests/requirements.txt
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
-      - name: Install test tools
-        run: |
-          npm ci
-          pip install -r tests/requirements.txt
-          python -m playwright install --with-deps ${{ matrix.browser }}
-      # A build without deployment settings (the sync test builds its own, against a mock server).
-      - name: Build for tests
-        run: python3 build.py
-      - name: Every screen, with axe
-        run: |
-          python3 tests/e2e_smoke.py | tee smoke.log && grep -q 'found: \[\] errors: \[\] a11y: \[\]$' smoke.log
-      - name: Keyboard and focus
-        run: |
-          python3 tests/e2e_keyboard.py | tee keyboard.log && grep -q 'keyboard: ok$' keyboard.log
-      - name: Offline and sync
-        run: |
-          python3 tests/e2e_pwa.py | tee pwa.log && grep -q 'pwa: ok$' pwa.log
+      - run: npm ci
+      - name: Install ${{ matrix.browser }}
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      # The tests build dist/ without deployment settings first; the sync test builds its own copy
+      # against a mock server.
+      - name: Every screen with axe, keyboard and focus, offline and sync
+        run: npx playwright test --project=${{ matrix.browser }}
 
   build:
     name: Build for deployment
@@ -85,9 +65,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          python-version: '3.12'
+          node-version: '22'
       - name: Build
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
@@ -99,7 +79,7 @@ jobs:
           PRIVACY_DATA_LOCATION: ${{ vars.PRIVACY_DATA_LOCATION }}
           PRIVACY_EMAIL_PROVIDER: ${{ vars.PRIVACY_EMAIL_PROVIDER }}
           PRIVACY_HOSTING: ${{ vars.PRIVACY_HOSTING }}
-        run: python3 build.py
+        run: node build.mjs
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist

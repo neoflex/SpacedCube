@@ -4,20 +4,17 @@ Thanks for helping. Issues and pull requests are welcome: bug reports, better al
 
 ## Set up
 
-You need Python 3 and Node.js. Nothing else is installed for the app itself.
+You need Node.js 22 or newer. Nothing else: no Python, no bundler.
 
 ```sh
-npm install                      # eslint, typescript, axe-core
-pip install -r tests/requirements.txt && python -m playwright install chromium firefox webkit
-npm run check                    # lint, type check, unit tests, core checks
-python3 build.py                 # -> dist/
-python3 tests/e2e_smoke.py       # must print "found: [] errors: [] a11y: []"
-python3 tests/e2e_keyboard.py    # must print "keyboard: ok"
-python3 tests/e2e_pwa.py         # must print "pwa: ok"
-BROWSER=webkit python3 tests/e2e_smoke.py   # the same in another engine
+npm install                      # Playwright, axe-core, eslint, typescript
+npx playwright install           # the browsers for the tests
+npm start                        # build and serve at http://localhost:8000
+npm test                         # lint, type check, unit tests, browser tests in Chromium, Firefox and WebKit
+npx playwright test --project=webkit   # the browser tests in one engine
 ```
 
-To try the app locally: `python3 -m http.server -d dist 8000` and open http://localhost:8000 (ES modules and service workers need http://localhost or HTTPS, not file://). Without environment variables the build has no sync server; to test sync, build with your own `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (see the README).
+`npm start` serves the app at http://localhost:8000 (ES modules and service workers need http://localhost or HTTPS, not file://). Without environment variables the build has no sync server; to test sync, build with your own `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (see the README).
 
 Every pull request runs the same checks, and the browser tests in Chromium, Firefox and WebKit, in GitHub Actions.
 

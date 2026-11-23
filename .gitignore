@@ -1,6 +1,7 @@
 dist/
-__pycache__/
 node_modules/
 *.png
 .mcp.json
 !docs/screenshots/*.png
+test-results/
+playwright-report/

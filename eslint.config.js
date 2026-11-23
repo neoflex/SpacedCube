@@ -14,8 +14,13 @@ export default [
     languageOptions: { sourceType: 'script', globals: { ...globals.serviceworker } },
   },
   {
-    files: ['tests/**/*.js', 'eslint.config.js'],
+    files: ['tests/**/*.js', 'tests/**/*.mjs', '*.mjs', 'eslint.config.js', 'tools/**/*.mjs'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.node } },
+  },
+  {
+    // Browser tests also hold functions that run inside the page.
+    files: ['tests/e2e/**/*.mjs'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
   {
     rules: {
