@@ -1,0 +1,16 @@
+name: Idea or request
+description: A feature, a new case set, a better algorithm, or a change to how practice works.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What would you like, and what problem does it solve for you?
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Examples, links, screenshots.

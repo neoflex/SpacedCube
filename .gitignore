@@ -3,3 +3,4 @@ __pycache__/
 node_modules/
 *.png
 .mcp.json
+!docs/screenshots/*.png

@@ -30,4 +30,4 @@ Read README.md first: it describes the features, layout, scheduling rules and sy
 
 - No bundler, no runtime dependency: `src/` is copied to `dist/` and the browser loads the ES modules directly. Keep modules small and focused (see the README layout); `src/js/core/` must not touch the DOM.
 - Shared UI state is `S` in `src/js/app/state.js`. Modules register their click handlers with `onAction` and re-render with `render()`; avoid import cycles (use `hooks` in state.js).
-- Nothing deployment-specific in the repository: no project ids, keys, domains or contact addresses. They come from environment variables at build time (GitHub Actions repository variables); see `build.py` and the README table.
+- Nothing deployment-specific in the repository: no project ids, keys, domains or contact addresses. They come from environment variables at build time (GitHub Actions repository variables); see `build.py` and the README table. The one exception is the README's link to the public copy at the top.

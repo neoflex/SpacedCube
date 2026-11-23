@@ -1,0 +1,31 @@
+name: Something does not work
+description: A bug, a wrong case or algorithm, or anything that behaves unexpectedly.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: case
+    attributes:
+      label: Case (if it is about one)
+      placeholder: e.g. OLL 27, Jb perm
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: e.g. iPhone 15, installed app / Firefox 130 on Windows
+    validations:
+      required: true
+  - type: dropdown
+    id: sync
+    attributes:
+      label: Signed in to sync?
+      options: ["No", "Yes"]
+  - type: markdown
+    attributes:
+      value: Please do not paste your backup code or email address here; this issue is public.

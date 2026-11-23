@@ -4,6 +4,14 @@ A spaced-practice trainer for the last layer of the 3x3 cube: all 57 **OLL** cas
 
 It gives you a scramble that produces a case from a solved cube, you solve it, and you say whether you got it. The trainer adapts how often each case comes back: weak cases come up often, cases you know well come back rarely but still often enough to check you have not forgotten them. New cases are added a few at a time as earlier ones become solid.
 
+**Use it at [spacedcube.app](https://spacedcube.app)**: free, no account needed, works offline once loaded. Install it from the browser to get a full-screen app on your phone.
+
+<p>
+  <img src="docs/screenshots/practice-phone-dark.png" alt="Practice screen on a phone, dark mode: a PLL scramble, help chips and the Missed / Got it buttons" width="260">
+  <img src="docs/screenshots/cases-phone-light.png" alt="Cases screen on a phone, light mode: PLL cases with computed diagrams, algorithms and levels" width="260">
+</p>
+<p><img src="docs/screenshots/progress-desktop-light.png" alt="Progress screen on a desktop: cases by level per day, attempts and success rate" width="700"></p>
+
 It is a static web app: it installs full screen on a phone, works offline, and can sync between devices through a Supabase project (optional). Without a sync server it keeps everything in the browser.
 
 ## Features
@@ -51,6 +59,7 @@ src/js/app/            The UI, as small ES modules:
   render.js, actions.js, keys.js   rendering, click and keyboard handling
 src/js/main.js         Entry point: wires the modules and starts the app.
 src/privacy.html       Privacy page template (filled in by the build).
+docs/screenshots/      Screenshots for this README.
 src/sw.js              Service worker (file list and version filled in by the build).
 src/fonts/, src/vendor/  Self-hosted fonts and three.js, with their licences.
 src/types.d.ts         Types of the few globals the app reads (for the type check).
@@ -134,6 +143,7 @@ Nothing specific to a deployment lives in the code. The build reads these enviro
 | `PRIVACY_DATA_LOCATION` | Where Supabase stores the data, e.g. `Servers in Ireland (EU).` |
 | `PRIVACY_EMAIL_PROVIDER` | Who sends the sign-in emails, e.g. `Brevo (EU)`. |
 | `PRIVACY_HOSTING` | Who hosts the files (default: GitHub Pages). |
+| `REPOSITORY_URL` | Source code link in the page footer. In GitHub Actions it defaults to the repository being built. |
 
 Set the custom domain, if any, in the repository's Pages settings.
 
@@ -169,4 +179,4 @@ Options > Show backup code (once per set), then Options > Restore from backup in
 - [three.js](https://threejs.org) r128 (MIT) for the 3D viewer, in `src/vendor/`.
 - Fonts: Archivo, IBM Plex Sans, IBM Plex Mono (SIL Open Font License 1.1, latin subset from Fontsource), in `src/fonts/`.
 - [axe-core](https://github.com/dequelabs/axe-core) (MPL 2.0) runs in the tests only.
-- SpacedCube itself: [MIT](LICENSE). Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md).
+- SpacedCube itself: [MIT](LICENSE). Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md). Security problems: see [SECURITY.md](SECURITY.md), please not in public issues.

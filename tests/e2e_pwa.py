@@ -88,7 +88,8 @@ async def main():
     # so the generated config.js and Content Security Policy are what gets tested.
     ROOT = pathlib.Path(tempfile.mkdtemp(prefix='spacedcube-pwa-')) / 'dist'
     env = {**os.environ, 'SUPABASE_URL': url.rstrip('/'), 'SUPABASE_PUBLISHABLE_KEY': 'anon-key', 'ALLOW_SIGNUP': 'true',
-           'TURNSTILE_SITE_KEY': 'test-site-key', 'PRIVACY_CONTACT_EMAIL': 'privacy@example.com'}
+           'TURNSTILE_SITE_KEY': 'test-site-key', 'PRIVACY_CONTACT_EMAIL': 'privacy@example.com',
+           'REPOSITORY_URL': 'https://github.com/example/spacedcube'}
     subprocess.run([sys.executable, str(REPO / 'build.py'), '--out', str(ROOT)], env=env, check=True, stdout=subprocess.DEVNULL)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     fails, errs = [], []
@@ -110,6 +111,8 @@ async def main():
         ctx.on('request', lambda r: hosts.append(r.url.split('/')[2]))
         await pg.goto(url)
         check(await pg.locator('link[rel=manifest]').count() == 1, 'manifest link')
+        check(await pg.get_attribute('.foot a >> nth=0', 'href') == 'https://github.com/example/spacedcube'
+              and await pg.get_attribute('.foot a >> nth=1', 'href') == 'https://github.com/example/spacedcube/issues', 'footer links to the repository')
         manifest = json.loads((ROOT / 'manifest.webmanifest').read_text())
         check({i['sizes'] for i in manifest['icons']} >= {'192x192', '512x512'}, 'manifest icons')
         await pg.evaluate('navigator.serviceWorker.ready.then(() => true)')
@@ -197,7 +200,7 @@ async def main():
         check(deleted == [UID] and not any(k[0] == UID for k in db), 'account deleted on the server')
         st = await pg.evaluate("JSON.parse(localStorage.getItem('oll-trainer-v1'))")
         check(st['cases']['27']['level'] == 4, 'local progress kept after delete')
-        check(await pg.locator('a[href="privacy.html"]').count() == 1, 'privacy link')
+        check(await pg.locator('.account a[href="privacy.html"]').count() == 1 and await pg.locator('.foot a[href="privacy.html"]').count() == 1, 'privacy links')
         r = await pg.request.get(url + 'privacy.html')
         txt = await r.text()
         check(r.ok and 'Delete account' in txt and 'privacy@example.com' in txt and 'Turnstile' in txt, 'privacy page filled in from the settings')

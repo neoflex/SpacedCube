@@ -16,6 +16,7 @@ Environment variables (all optional; without SUPABASE_URL the app keeps progress
   PRIVACY_DATA_LOCATION      where Supabase stores the data, e.g. "Servers in Ireland (EU)."
   PRIVACY_EMAIL_PROVIDER     who sends the sign-in emails, e.g. "Brevo (EU)"
   PRIVACY_HOSTING            who hosts the files (default: GitHub Pages)
+  REPOSITORY_URL             source code link in the footer (in GitHub Actions: this repository, automatically)
 """
 import argparse, hashlib, html, json, os, pathlib, re, shutil, sys
 from urllib.parse import urlsplit
@@ -108,6 +109,20 @@ assert '{{' not in page and '<!--IF' not in page, 'unfilled privacy template'
 add_csp(dist / 'privacy.html', CSP_PRIVACY)
 
 icons.write_all(dist)
+
+# Footer: source code and issue links (the repository this build comes from), and the privacy page.
+repo = env('REPOSITORY_URL')
+if not repo and env('GITHUB_REPOSITORY'):
+    repo = env('GITHUB_SERVER_URL', 'https://github.com') + '/' + env('GITHUB_REPOSITORY')
+repo = repo.rstrip('/')
+if repo and not re.match(r'^https://[^\s"<>]+$', repo):
+    sys.exit('REPOSITORY_URL must be an https:// address')
+links = ([f'<a href="{html.escape(repo)}">Source code</a>', f'<a href="{html.escape(repo)}/issues">Report a problem or suggest an idea</a>'] if repo else []) \
+    + ['<a href="privacy.html">Privacy</a>']
+footer = ('<footer class="foot"><p>SpacedCube is free and open source (MIT licence). '
+          + '<span class="foot-links">' + ''.join(f'<span>{a}</span>' for a in links) + '</span></p></footer>')
+index_path = dist / 'index.html'
+index_path.write_text(index_path.read_text().replace('<!--@FOOTER@-->', footer))
 
 # Preload every module main.js needs, so the browser fetches them in parallel instead of one
 # import level at a time.

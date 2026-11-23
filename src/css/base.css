@@ -181,3 +181,15 @@ body.no-shortcuts kbd { display: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Footer: open source, issues, privacy. */
+.foot {
+  max-width: 1180px; margin: 0 auto; color: var(--muted); font-size: 13px; text-align: center;
+  padding: 0 max(20px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
+.foot p { margin: 0; }
+.foot-links { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px 0; }
+.foot-links span + span::before { content: "·"; margin: 0 8px; color: var(--muted); }
+.foot-links a { color: var(--muted); text-underline-offset: 2px; }
+.foot-links a:hover { color: var(--ink); }
+main { padding-bottom: 28px; }
