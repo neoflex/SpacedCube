@@ -9,7 +9,7 @@ import { Sync } from '../../src/js/app/sync.js';
 // A fake server: one row per set.
 let rows, puts;
 beforeEach(() => {
-  localStorage.clear(); locked.clear();
+  localStorage.clear(); locked.clear(); localStorage.setItem('ll-trainer-set', 'OLL');
   rows = {}; puts = [];
   Supa.url = 'http://example.test'; Supa.key = 'k';
   Supa.session = { user: { id: 'u1' } };

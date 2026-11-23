@@ -149,6 +149,7 @@ async def main():
 
         # An attempt is pushed about 1.5 s later.
         before = db[(UID, 'OLL')]['state']['updatedAt']
+        await pg.click('.tab[data-set="OLL"]')
         await pg.click('#tab-practice')
         await pg.keyboard.press('ArrowRight')
         for _ in range(40):

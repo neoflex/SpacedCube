@@ -17,7 +17,8 @@ Read README.md first: it describes the features, layout, scheduling rules and sy
 
 - Seeing the algorithm or using a hint makes the attempt a miss, after a confirmation. Showing the case diagram alone is free. Auto-revealed algorithms (new case, "show the case before I solve") do not count.
 - Levels rise only after the time gaps in `GAP_MS` (see README). The user found that cases "mastered" quickly from short-term memory were then forgotten; do not reintroduce promotion on every correct answer.
-- New cases come from a learning pool (`settings.pool`, default 3), not "everything must be learned first".
+- New cases come from a learning pool (`settings.pool`, default 3), not "everything must be learned first". A case counts as learned at Solid by default (`introLevel` 5).
+- PLL comes before OLL: first in the header, and the set a new user starts on.
 - Sync is whole-state, newest `updatedAt` wins. Local storage is always written first; the page must work fully offline and without any backend.
 - Text in the UI: plain, direct, no em-dash asides. Dialogs are built into the page (no alert/confirm).
 - Accounts can be open to anyone (`ALLOW_SIGNUP`), protected by Cloudflare Turnstile on the sign-in form. Deploy the site key before Supabase requires the check, never the other way round. Users can delete their account from the app; `src/privacy.html` must stay accurate when what is stored or who processes it changes.

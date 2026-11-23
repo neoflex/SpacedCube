@@ -4,7 +4,13 @@ import assert from 'node:assert/strict';
 import { sets, SCHEMA_VERSION } from '../../src/js/core/index.js';
 import { S, initState, save, backupOwner, locked, hooks, switchSet } from '../../src/js/app/state.js';
 
-beforeEach(() => { localStorage.clear(); locked.clear(); });
+beforeEach(() => { localStorage.clear(); locked.clear(); localStorage.setItem('ll-trainer-set', 'OLL'); });
+
+test('a new user starts on PLL', () => {
+  localStorage.clear();
+  initState();
+  assert.equal(S.set, 'PLL');
+});
 
 test('backupOwner finds the set a backup code belongs to', () => {
   assert.equal(backupOwner(sets.OLL.freshState()), 'OLL');

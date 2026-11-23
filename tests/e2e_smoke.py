@@ -38,7 +38,7 @@ async def main():
                     for n in v['nodes'][:3]:
                         entry['nodes'].add(n['target'][0] if isinstance(n['target'][0], str) else str(n['target']))
 
-            for S in ['OLL', 'PLL']:
+            for S in ['PLL', 'OLL']:
                 await pg.click(f'.tab[data-set="{S}"]')
                 await scan(S + ' setup')
                 n = await pg.locator('.ghead .btn').count()

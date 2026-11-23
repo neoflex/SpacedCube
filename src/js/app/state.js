@@ -9,7 +9,7 @@ const SHORTCUTS_KEY = 'spacedcube-shortcuts';
 const DAILY_KEEP = 730; // days of chart history kept in the state (keeps each synced row small)
 
 export const S = {
-  set: 'OLL',
+  set: 'PLL',            // PLL first: 21 cases, and recognising them trains the eye for OLL
   C: null,              // the open case set (K.sets[S.set])
   state: null,          // its saved progress
   view: 'practice',     // practice | cases | progress | options

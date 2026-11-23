@@ -36,9 +36,9 @@ async def main():
         await pg.focus('[data-action="setup-start"]')
         await pg.keyboard.press('Enter')
         check(await focused() == 'view-title', 'focus on view heading after starting')
-        check((await pg.title()).endswith('Practice · OLL · SpacedCube'), 'page title names the view')
+        check((await pg.title()).endswith('Practice · PLL · SpacedCube'), 'page title names the view (new users start on PLL)')
         # Due cases are shown in the header (with an accessible name) and the tab title.
-        due = await pg.text_content('.tab[data-set="OLL"] .due-count')
+        due = await pg.text_content('.tab[data-set="PLL"] .due-count')
         check(due and due.endswith(' due') and (await pg.title()).startswith(f'({due.split()[0]}) '), f'due count in header and title: {due!r}')
 
         # Grading by button keeps focus on that button after the re-render, and is announced.
@@ -49,7 +49,7 @@ async def main():
         check('Got it' in await pg.text_content('#announcer'), 'grade announced')
 
         # Shortcuts: arrows grade; Space on a focused button presses that button instead.
-        rep = lambda: pg.evaluate("JSON.parse(localStorage.getItem('oll-trainer-v1')).rep")
+        rep = lambda: pg.evaluate("JSON.parse(localStorage.getItem('pll-trainer-v1')).rep")
         before = await rep()
         await pg.focus('#view-title')
         await pg.keyboard.press('ArrowLeft')
@@ -98,6 +98,7 @@ async def main():
             Object.assign(s.cases['27'], { active: true, level: 2, n: 3, ok: 3, last: 0, lastTs: now - 8 * 60000 });
             s.updatedAt = now;
             localStorage.setItem('oll-trainer-v1', JSON.stringify(s));
+            localStorage.setItem('ll-trainer-set', 'OLL');
         }""")
         await pg2.reload()
         await pg2.wait_for_selector('.duepill')

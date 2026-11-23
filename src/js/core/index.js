@@ -9,4 +9,4 @@ export * from './notation.js';
 export * from './inspect.js';
 export { PLL_FT_ALL } from './case-set.js';
 export { SCHEMA_VERSION, NewerStateError, isNewer, migrate } from './schema.js';
-export const sets = { OLL: makeSet(OLL_DEF), PLL: makeSet(PLL_DEF) };
+export const sets = { PLL: makeSet(PLL_DEF), OLL: makeSet(OLL_DEF) };
