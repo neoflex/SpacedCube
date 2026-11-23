@@ -11,7 +11,8 @@ It is a static web app: it installs full screen on a phone, works offline, and c
 - **Case picker.** First run: tick the cases you already kind of know; they start in rotation, the rest are introduced in a learning order.
 - **Scrambles generated from the algorithms.** A sticker-level cube simulator inverts the algorithm and, by default, disguises the scramble (OLL: random last-layer permutation; PLL: combination of two other PLLs that lands on the target case), so the case cannot be recognised from the moves. Every scramble is checked in the simulator before it is shown.
 - **Diagrams computed from the algorithms.** OLL: top face and side stickers. PLL: side colours and permutation arrows.
-- **Help that counts honestly.** Show the case only (free), hints one move at a time, or the full algorithm; hints and the algorithm turn the attempt into a miss, with a confirmation first.
+- **Help that counts honestly.** Help chips under the scramble: the case (free), hints one move at a time, or the full algorithm. Hints and the algorithm turn the attempt into a miss, marked on the chip and explained under the grade buttons, with a confirmation first.
+- **No accidental double grades.** After Got it or Missed the result stays on screen and a Next scramble button takes the place of the grade buttons, so tapping Got it again after restoring the cube grades nothing (Options, On this device: Pause after each grade).
 - **3D replay.** Plays the solution on a 3D cube starting from your actual scramble (three.js, loaded on first use).
 - **Custom algorithms.** Checked against the case before saving; a leading `y` rotation is hidden and the diagram is turned to match.
 - **Cases view.** Grouped like jperm.net, or sorted by weakest first / most recent misses.

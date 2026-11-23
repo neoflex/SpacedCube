@@ -4,7 +4,7 @@ import { S } from './state.js';
 import { target } from './util.js';
 import { viewerKey } from './viewer3d.js';
 import { closeDialog } from './dialog.js';
-import { askReveal, confirmReveal, askHint, showCaseOnly, cancelAsk, gradeCurrent, doUndo } from './practice.js';
+import { askReveal, confirmReveal, askHint, showCaseOnly, cancelAsk, gradeCurrent, doUndo, nextScramble } from './practice.js';
 import { watchCurrent } from './viewer3d.js';
 import { settingChanged } from './options.js';
 import { viewerSpeed } from './viewer3d.js';
@@ -26,6 +26,11 @@ export function listenKeys() {
     if (!S.shortcuts || e.metaKey || e.ctrlKey || e.altKey) return;
     // Space and arrows keep their usual meaning on buttons and links.
     const onControl = t.closest('button, a, summary');
+    // After a grade, every grading key moves on to the next scramble instead of grading it unseen.
+    if (S.paused) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'n' || e.key === 'N' || (e.key === ' ' && !onControl)) { e.preventDefault(); nextScramble(); }
+      return;
+    }
     if (e.key === ' ' && !onControl) { e.preventDefault(); if (c.revealAsk) confirmReveal(); else askReveal(); }
     else if ((e.key === 'c' || e.key === 'C') && !c.revealed) { e.preventDefault(); showCaseOnly(); }
     else if ((e.key === 'w' || e.key === 'W') && c.revealed) { e.preventDefault(); watchCurrent(); }

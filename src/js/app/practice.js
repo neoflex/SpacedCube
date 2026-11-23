@@ -1,7 +1,7 @@
 // Practice: the scramble, help (case, hints, algorithm), grading, and the progress rail.
 import * as K from '../core/index.js';
 import { S, save, snapshotToday, render } from './state.js';
-import { esc, dayKey, pct, THRESH, announce } from './util.js';
+import { $, esc, dayKey, pct, THRESH, ICON, announce } from './util.js';
 import { diagram, chip, algFor, label } from './diagrams.js';
 import { onAction } from './actions.js';
 import { dueStatus } from './due.js';
@@ -39,8 +39,21 @@ export function gradeCurrent(ok) {
   S.lastResult = { id, ok, level, hinted };
   save();
   nextCase();
+  // Pause: the next scramble waits behind "Next scramble", which takes the place of the grade
+  // buttons. Tapping "Got it" again out of habit (after restoring the cube) then grades nothing.
+  S.paused = S.pauseAfterGrade && !!S.current;
   render();
-  announce(`${ok ? 'Got it' : 'Missed'}: ${label(id)}, now ${C.BUCKETS[C.bucketOf(level)]}. ${S.current ? 'New scramble.' : ''}`);
+  const result = `${ok ? 'Got it' : 'Missed'}: ${label(id)}, now ${C.BUCKETS[C.bucketOf(level)]}.`;
+  if (S.paused) { announce(`${result} Restore your cube, then go to the next scramble.`); focusSoon('#next-btn'); }
+  else announce(`${result} ${S.current ? 'New scramble.' : ''}`);
+}
+
+// Leaves the pause after a grade and shows the next scramble.
+export function nextScramble() {
+  if (!S.paused) return;
+  S.paused = false;
+  render();
+  focusSoon('#scramble-text');
 }
 
 // Algorithm split into displayable moves; parenthesised AUF stays one token.
@@ -91,7 +104,7 @@ export function cancelAsk() {
 }
 // After a re-render, move focus to the new control (keyboard and screen-reader users keep their place).
 function focusSoon(sel, makeFocusable) {
-  const el = document.querySelector(sel);
+  const el = $(sel);
   if (!el) return;
   if (makeFocusable) el.setAttribute('tabindex', '-1');
   el.focus();
@@ -103,6 +116,7 @@ export function doUndo() {
   S.current = S.undo.current;
   S.undo = null;
   S.lastResult = null;
+  S.paused = false;
   save();
   render();
   announce('Last grade undone.');
@@ -128,39 +142,54 @@ function caseTitle(id) {
   return `<div class="case-title"><b>${esc(S.C.label(id))}</b><span>${esc(c.nick ? c.nick + ' · ' : '')}${esc(c.group)}</span></div>`;
 }
 
+// Help for the current attempt: what has been shown so far, then the help chips.
 function answerView() {
   const { C, state, current } = S;
   const id = current.id, cs = state.cases[id], c = C.CASES[id];
   if (current.revealed) {
     const custom = state.custom[id];
-    return `<div class="case-show">${diagram(id, 128)}<div class="info">
+    return `<div class="answer open"><div class="case-show">${diagram(id, 128)}<div class="info">
         ${caseTitle(id)}
         <code class="alg" aria-label="Algorithm: ${esc(algFor(id))}">${esc(algFor(id))}</code>
         ${custom ? '<span class="alg-note">Your algorithm. Standard: ' + esc(c.alg) + '</span>' : ''}
         <div class="row">${chip(id)}<span class="muted" style="font-size:13px">${cs.n ? `${cs.ok}/${cs.n} correct` : 'First time'}</span>
         <button type="button" class="linkbtn" data-action="open" data-id="${id}" style="font-size:13px">Case details</button></div>
         <button type="button" class="btn small v-open" data-action="watch-current">Watch it in 3D ${kbd('W')}</button>
-      </div></div>`;
+      </div></div></div>
+      ${current.algSeen ? '' : `<div class="helpchips" role="group" aria-label="Help"><button type="button" class="hchip" data-action="reveal">${ICON.eye}Hide the algorithm ${kbd('Space')}</button></div>`}`;
   }
   const toks = algTokens(id);
   const h = current.hints || 0;
   const more = h < toks.length;
-  const hint = h ? `<code class="alg">${toks.slice(0, h).map(esc).join(' ')}${more ? ' <span class="muted" aria-hidden="true">…</span>' : ''}</code>
-      <span class="alg-note">${more ? `Move ${h} of ${toks.length}.` : 'That is the whole algorithm.'} Hint used: this attempt counts as missed.</span>` : '';
-  const caseOnly = current.caseShown ? `<div class="case-show case-only">${diagram(id, 112)}<div class="info">${caseTitle(id)}<div class="row">${chip(id)}</div></div></div>` : '';
-  const ask = (text, yes, yesLabel, key, no) => `<div class="hintask" role="group" aria-label="${esc(text)}"><span>${text}</span>
+  const shown = [];
+  if (h) {
+    shown.push(`<code class="alg">${toks.slice(0, h).map(esc).join(' ')}${more ? ' <span class="muted" aria-hidden="true">…</span>' : ''}</code>
+      <span class="alg-note">${more ? `Move ${h} of ${toks.length}.` : 'That is the whole algorithm.'}</span>`);
+  }
+  if (current.caseShown) shown.push(`<div class="case-show case-only">${diagram(id, 112)}<div class="info">${caseTitle(id)}<div class="row">${chip(id)}</div></div></div>`);
+  const ask = (text, yes, yesLabel, key) => `<div class="hintask" role="group" aria-label="${esc(text)}"><span>${text}</span>
       <span class="row" style="justify-content:center"><button type="button" class="btn small" data-action="${yes}">${yesLabel} ${kbd(key)}</button>
-      <button type="button" class="btn small" data-action="${no}">Cancel ${kbd('Esc')}</button></span></div>`;
-  const reveal = current.revealAsk
-    ? ask('Show the algorithm? This attempt will count as missed.', 'reveal-yes', 'Show algorithm', 'Space', 'ask-no')
-    : `<span class="row" style="justify-content:center;gap:4px 18px">
-        ${current.caseShown ? '' : `<button type="button" class="reveal" data-action="show-case">Show case only ${kbd('C')}</button>`}
-        <button type="button" class="reveal" data-action="reveal">${current.caseShown ? 'Show algorithm' : 'Show case and algorithm'} ${kbd('Space')}</button>
-      </span>`;
-  const hintCtl = current.revealAsk ? '' : current.hintAsk
-    ? ask('Show the first move? This attempt will count as missed.', 'hint-yes', 'Show first move', 'H', 'ask-no')
-    : more ? `<button type="button" class="hintlink" data-action="hint">${h ? 'Next move' : 'Need a hint?'} ${kbd('H')}</button>` : '';
-  return `<div class="hintbox">${hint}${caseOnly}${reveal}${hintCtl}</div>`;
+      <button type="button" class="btn small" data-action="ask-no">Cancel ${kbd('Esc')}</button></span></div>`;
+  if (current.revealAsk) shown.push(ask('Show the algorithm? This attempt will count as missed.', 'reveal-yes', 'Show algorithm', 'Space'));
+  if (current.hintAsk) shown.push(ask('Show the first move? This attempt will count as missed.', 'hint-yes', 'Show first move', 'H'));
+  const costly = '<span class="costdot" aria-hidden="true"></span><span class="sr-only"> (counts as missed)</span>';
+  const chips = current.revealAsk || current.hintAsk ? '' : `<div class="helpchips" role="group" aria-label="Help">
+      ${current.caseShown ? '' : `<button type="button" class="hchip" data-action="show-case">${ICON.eye}Case ${kbd('C')}</button>`}
+      ${more ? `<button type="button" class="hchip" data-action="hint">${ICON.bulb}${h ? 'Next move' : 'Hint'}${current.hints || current.algSeen ? '' : costly} ${kbd('H')}</button>` : ''}
+      <button type="button" class="hchip" data-action="reveal">${ICON.list}Algorithm${current.hints || current.algSeen ? '' : costly} ${kbd('Space')}</button>
+    </div>`;
+  return `${shown.length ? `<div class="answer">${shown.join('')}</div>` : ''}${chips}`;
+}
+
+// After a grade (pause on): the result, and the next scramble behind one button.
+function pausedView() {
+  const { C } = S;
+  const L = S.lastResult;
+  return `<div class="pausebox" role="group" aria-labelledby="pause-h">
+      <p class="pause-result ${L.ok ? 'ok' : 'ko'}" id="pause-h">${L.ok ? ICON.ok : ICON.x}${L.ok ? 'Got it' : 'Missed'}: ${esc(label(L.id))}</p>
+      <p class="muted">Now ${C.BUCKETS[C.bucketOf(L.level)]}${L.hinted ? ' (help used)' : ''}. Restore your cube, then go on.</p>
+      ${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo this grade</button>' : ''}
+    </div>`;
 }
 
 export function practiceView() {
@@ -192,15 +221,17 @@ export function practiceView() {
         <span class="row" style="gap:10px"><span class="muted" style="font-size:13px">Attempt ${state.rep + 1}</span><span class="duepill ${due ? 'on' : ''}" data-due="${due}">${status.text}</span></span></div>
       ${!due && !current.isNew ? `<div class="newflag">Nothing is due right now${status.wait ? `: the next case comes due <span class="due-wait">${status.wait}</span>` : ''}. Extra practice keeps you sharp, but levels only rise after a gap, so this is a good moment to stop.</div>` : ''}
       ${current.isNew ? `<div class="newflag"><b>New case: ${esc(label(id))}.</b> Learn the algorithm below, then scramble and try it.</div>` : ''}
-      <p class="scramble">${moves}</p>
+      ${S.paused ? pausedView() : `<p class="scramble" id="scramble-text" tabindex="-1"><span class="sr-only">Scramble: </span>${moves}</p>
       <p class="hint">Hold yellow on top and green in front, apply the scramble to a solved cube, then solve the ${C.kind === 'pll' ? 'permutation of the last layer. The top face is already solved' : 'orientation of the last layer'}.</p>
-      <div class="answer ${current.revealed ? 'open' : ''}">${answerView()}</div>
-      <div class="grades" role="group" aria-label="How did it go?">
-        <button type="button" class="grade miss" data-action="grade" data-ok="0">Missed ${kbd('←')}</button>
-        <button type="button" class="grade hit" data-action="grade" data-ok="1" ${helped ? 'aria-describedby="helped-note"' : ''}>${helped ? 'Solved with help' : 'Got it'} ${kbd('→')}</button>
+      ${answerView()}`}
+      <div class="thumbbar">
+        ${S.paused ? `<button type="button" class="nextbtn" id="next-btn" data-action="next">Next scramble ${ICON.next} ${kbd('→')}</button>` : `<div class="grades" role="group" aria-label="How did it go?">
+          <button type="button" class="grade miss" data-action="grade" data-ok="0">${ICON.x}Missed ${kbd('←')}</button>
+          <button type="button" class="grade hit" data-action="grade" data-ok="1" aria-describedby="grade-note">${ICON.ok}${helped ? 'Solved with help' : 'Got it'} ${kbd('→')}</button>
+        </div>
+        <p class="gradenote" id="grade-note">${helped ? 'Recorded as missed: you used a hint or saw the algorithm.' : current.revealed ? '' : '<span class="costdot" aria-hidden="true"></span>Hint and Algorithm count the attempt as missed.'}</p>`}
+        ${!S.paused && last ? `<div class="last">${last}</div>` : ''}
       </div>
-      ${helped ? '<p class="sr-only" id="helped-note">Recorded as missed because you used a hint or saw the algorithm.</p>' : ''}
-      <div class="last">${last}</div>
     </section>
     ${rail}
   </div>`;
@@ -270,6 +301,7 @@ onAction({
   'ask-no': () => cancelAsk(),
   hint: () => askHint(),
   'hint-yes': () => giveHint(),
+  next: () => nextScramble(),
   'show-case': () => showCaseOnly(),
   grade: (el) => gradeCurrent(el.dataset.ok === '1'),
   undo: () => doUndo(),

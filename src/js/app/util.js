@@ -25,6 +25,13 @@ export const ICON = {
   check: '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   plus: '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
 };
+const svg = (d, w = 2) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${d}" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+ICON.eye = svg('M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z');
+ICON.bulb = svg('M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z');
+ICON.list = svg('M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01', 2.2);
+ICON.x = svg('M6 6l12 12M18 6L6 18', 2.4);
+ICON.ok = svg('M5 12.5l4.5 4.5L19 7.5', 2.6);
+ICON.next = svg('M5 12h14M13 6l6 6-6 6', 2.4);
 export const THRESH = { 3: 'Familiar', 5: 'Solid', 7: 'Mastered' };
 
 // Screen-reader announcement through the page's single polite live region.

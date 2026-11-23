@@ -41,19 +41,28 @@ async def main():
         due = await pg.text_content('.tab[data-set="PLL"] .due-count')
         check(due and due.endswith(' due') and (await pg.title()).startswith(f'({due.split()[0]}) '), f'due count in header and title: {due!r}')
 
-        # Grading by button keeps focus on that button after the re-render, and is announced.
+        # Grading pauses: the result stays, focus moves to Next scramble (same place as the grade
+        # buttons), and the grade is announced.
+        rep = lambda: pg.evaluate("JSON.parse(localStorage.getItem('pll-trainer-v1')).rep")
+        before = await rep()
         await pg.focus('[data-action="grade"][data-ok="1"]')
         await pg.keyboard.press('Enter')
-        check(await focused() == 'grade', 'focus kept on the grade button')
+        check(await rep() == before + 1, 'grade recorded')
+        check(await focused() == 'next-btn', 'focus on Next scramble after grading')
+        check(await pg.locator('.pausebox').count() == 1 and await pg.locator('#scramble-text').count() == 0, 'result shown, next scramble hidden')
         await wait_until(pg, "document.getElementById('announcer').textContent.length > 0")
         check('Got it' in await pg.text_content('#announcer'), 'grade announced')
 
-        # Shortcuts: arrows grade; Space on a focused button presses that button instead.
-        rep = lambda: pg.evaluate("JSON.parse(localStorage.getItem('pll-trainer-v1')).rep")
-        before = await rep()
-        await pg.focus('#view-title')
+        # Grading again by habit (Enter on the same spot, or an arrow key) moves on and grades nothing.
+        await pg.keyboard.press('Enter')
+        check(await rep() == before + 1, 'second press does not grade')
+        check(await focused() == 'scramble-text', 'focus on the new scramble')
+
+        # Shortcuts: arrows grade a visible scramble; while paused they only move on.
         await pg.keyboard.press('ArrowLeft')
-        check(await rep() == before + 1, 'arrow grades with shortcuts on')
+        check(await rep() == before + 2, 'arrow grades with shortcuts on')
+        await pg.keyboard.press('ArrowLeft')
+        check(await rep() == before + 2 and await pg.locator('#scramble-text').count() == 1, 'arrow while paused moves on without grading')
 
         # The case dialog: focus moves in, the page behind is inert, Escape returns focus to the opener.
         await pg.focus('.strip button >> nth=2')
@@ -79,6 +88,11 @@ async def main():
         await pg.keyboard.press('ArrowRight')
         check(await rep() == before, 'no grading with shortcuts off')
         check(await pg.evaluate("getComputedStyle(document.querySelector('kbd')).display === 'none'"), 'key hints hidden')
+        # With "Pause after each grade" off, grading goes straight to the next scramble.
+        await pg.click('#tab-options'); await pg.click('#o-pause'); await pg.click('#tab-practice')
+        before = await rep()
+        await pg.click('[data-action="grade"][data-ok="1"]')
+        check(await rep() == before + 1 and await pg.locator('.pausebox').count() == 0 and await pg.locator('#scramble-text').count() == 1, 'no pause when turned off')
         await pg.reload()
         await pg.wait_for_selector('#app > *')
         check(await pg.evaluate("document.body.classList.contains('no-shortcuts')"), 'shortcut setting kept')

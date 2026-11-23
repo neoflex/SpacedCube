@@ -6,6 +6,7 @@ import { dayKey } from './util.js';
 const KEYS = { OLL: 'oll-trainer-v1', PLL: 'pll-trainer-v1' };
 const SET_KEY = 'll-trainer-set';
 const SHORTCUTS_KEY = 'spacedcube-shortcuts';
+const PAUSE_KEY = 'spacedcube-pause';
 const DAILY_KEEP = 730; // days of chart history kept in the state (keeps each synced row small)
 
 export const S = {
@@ -29,6 +30,8 @@ export const S = {
   recalMsg: null,
   storageOK: true,
   shortcuts: true,
+  pauseAfterGrade: true, // device setting: wait for "Next scramble" after each grade
+  paused: false,         // a grade was just given; the next scramble waits
 };
 
 // Hooks set by main.js, so modules need not import each other in a circle.
@@ -61,6 +64,7 @@ export const ctx = {};
 export function initState() {
   try { const v = localStorage.getItem(SET_KEY); if (v && K.sets[v]) S.set = v; } catch (e) { /* storage blocked */ }
   try { S.shortcuts = localStorage.getItem(SHORTCUTS_KEY) !== 'off'; } catch (e) { /* storage blocked */ }
+  try { S.pauseAfterGrade = localStorage.getItem(PAUSE_KEY) !== 'off'; } catch (e) { /* storage blocked */ }
   for (const n of Object.keys(K.sets)) {
     let st;
     try { st = K.sets[n].normalize(loadLocal(n)); }
@@ -78,6 +82,12 @@ export function initState() {
 export const getState = (n) => (n === S.set ? S.state : ctx[n].state);
 export function setState(n, st) {
   if (n === S.set) S.state = st; else ctx[n].state = st;
+}
+
+export function setPauseAfterGrade(on) {
+  S.pauseAfterGrade = on;
+  if (!on) S.paused = false;
+  try { localStorage.setItem(PAUSE_KEY, on ? 'on' : 'off'); } catch (e) { /* storage blocked */ }
 }
 
 export function setShortcuts(on) {
@@ -125,6 +135,7 @@ export function switchSet(name) {
   Object.assign(ctx[S.set], { state: S.state, current: S.current, lastResult: S.lastResult, undo: S.undo, view: S.view });
   S.set = name; S.C = K.sets[name];
   ({ state: S.state, current: S.current, lastResult: S.lastResult, undo: S.undo, view: S.view } = ctx[name]);
+  S.paused = false;
   S.setupSel.clear(); S.filter = 'all'; S.sortBy = 'group'; S.dialogId = null; S.dataPanel = null; S.dataMsg = null;
   try { localStorage.setItem(SET_KEY, name); } catch (e) { /* storage blocked */ }
   return true;
