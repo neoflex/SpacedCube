@@ -200,10 +200,14 @@ function answerView() {
 function pausedView() {
   const { C } = S;
   const L = S.lastResult;
+  // The case's diagram, so you can check it is the one you just solved.
   return `<div class="pausebox" role="group" aria-labelledby="pause-h">
-      <p class="pause-result ${L.ok ? 'ok' : 'ko'}" id="pause-h">${L.ok ? ICON.ok : ICON.x}${L.ok ? 'Got it' : 'Missed'}: ${esc(label(L.id))}</p>
-      <p class="muted">Now ${C.BUCKETS[C.bucketOf(L.level)]}${L.hinted ? ' (help used)' : ''}. Restore your cube, then go on.</p>
-      ${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo this grade</button>' : ''}
+      ${diagram(L.id, 72)}
+      <div class="pause-text">
+        <p class="pause-result ${L.ok ? 'ok' : 'ko'}" id="pause-h">${L.ok ? ICON.ok : ICON.x}${L.ok ? 'Got it' : 'Missed'}: ${esc(label(L.id))}</p>
+        <p class="muted">Now ${C.BUCKETS[C.bucketOf(L.level)]}${L.hinted ? ' (help used)' : ''}. Restore your cube, then go on.</p>
+        ${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo this grade</button>' : ''}
+      </div>
     </div>`;
 }
 

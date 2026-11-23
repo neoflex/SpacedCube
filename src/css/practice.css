@@ -127,3 +127,7 @@
 .helpchips { gap: 6px; }
 @media (min-width: 521px) { .hchip { font-size: 15px; gap: 7px; } }
 .hchip { flex: 1 1 auto; }
+/* Pause after a grade: the case's diagram beside the result. */
+.pausebox { grid-template-columns: auto minmax(0, auto); justify-content: center; align-items: center; gap: 16px; text-align: left; justify-items: start; }
+.pause-text { display: grid; gap: 4px; justify-items: start; }
+.pause-result .ic { margin-left: -2px; }

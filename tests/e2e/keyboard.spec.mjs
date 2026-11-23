@@ -49,6 +49,7 @@ test('keyboard and focus through a practice session', async ({ page }) => {
   soft(await rep(), 'grade recorded').toBe(before + 1);
   soft(await focused(page), 'focus on Next scramble').toBe('next-btn');
   soft(await page.locator('.pausebox').count() === 1 && await page.locator('#scramble-text').count() === 0, 'result shown, next scramble hidden').toBe(true);
+  soft(await page.locator('.pausebox svg.dg[role=img]').count(), 'diagram of the graded case in the pause box').toBe(1);
   await until(page, "document.getElementById('announcer').textContent.length > 0");
   soft(await page.textContent('#announcer'), 'grade announced').toContain('Got it');
 
