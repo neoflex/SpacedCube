@@ -78,6 +78,19 @@ async def main():
         check(await pg.evaluate(f"document.activeElement.dataset.id === {opener!r}"), 'focus returns to the opener')
         check(not await pg.evaluate("document.getElementById('app').inert"), 'page usable again')
 
+        # "Practise it now" in a case's details: one attempt at that case, graded like any other.
+        pick = await pg.get_attribute('.strip button >> nth=5', 'data-id')
+        await pg.click('.strip button >> nth=5')
+        await pg.click('[data-action="practise-now"]')
+        check(await pg.evaluate("!document.querySelector('[role=dialog]') && !document.getElementById('app').inert"), 'dialog closed after Practise it now')
+        check(await focused() == 'scramble-text', 'focus on the picked scramble')
+        check(pick in (await pg.text_content('.newflag')), 'picked case named on the practice screen')
+        n_before = await pg.evaluate(f"JSON.parse(localStorage.getItem('pll-trainer-v1')).cases[{pick!r}].n")
+        await pg.click('[data-action="grade"][data-ok="1"]')
+        st = await pg.evaluate("JSON.parse(localStorage.getItem('pll-trainer-v1'))")
+        check(st['cases'][pick]['n'] == n_before + 1 and st['cases'][pick]['active'], 'the picked case was graded (and is in practice)')
+        await pg.click('#next-btn')
+
         # Turning shortcuts off (Options) stops single keys, and hides the key hints.
         await pg.click('#tab-options')
         check(await focused() == 'view-title', 'focus on Options heading')

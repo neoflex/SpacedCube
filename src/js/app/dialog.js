@@ -2,7 +2,7 @@
 import { S, save, render } from './state.js';
 import { $, esc, pct, announce } from './util.js';
 import { diagram, chip, algFor, label, nextLevelText } from './diagrams.js';
-import { setActive } from './practice.js';
+import { setActive, practiseNow } from './practice.js';
 import { onAction } from './actions.js';
 import { modalOpened, modalClosed } from './modal.js';
 
@@ -45,7 +45,8 @@ export function renderDialog() {
       ${cs.active && cs.level < C.MAX_LEVEL ? `<p class="muted" style="margin:0;font-size:13px">${nextLevelText(cs)}</p>` : ''}
     </section>
     <div class="actions">
-      ${cs.active ? '<button type="button" class="btn small" data-action="dlg-toggle" data-on="0">Remove from practice</button>' : '<button type="button" class="btn small primary" data-action="dlg-toggle" data-on="1">Add to practice</button>'}
+      <button type="button" class="btn small primary" data-action="practise-now">Practise it now</button>
+      ${cs.active ? '<button type="button" class="btn small" data-action="dlg-toggle" data-on="0">Remove from practice</button>' : '<button type="button" class="btn small" data-action="dlg-toggle" data-on="1">Add to practice</button>'}
       ${cs.level < 5 ? '<button type="button" class="btn small" data-action="known">I know this one well</button>' : ''}
       ${cs.n || cs.level ? '<button type="button" class="btn small danger" data-action="reset-case">Reset this case</button>' : ''}
     </div>
@@ -64,6 +65,11 @@ export function closeDialog() {
 }
 
 onAction({
+  'practise-now': () => {
+    const id = S.dialogId;
+    closeDialog();
+    practiseNow(id);
+  },
   open: (el) => { S.dialogId = el.dataset.id; S.algMsg = null; renderDialog(); },
   close: () => closeDialog(),
   'close-bg': (el, e) => { if (e.target === el) closeDialog(); },

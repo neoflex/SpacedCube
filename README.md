@@ -14,6 +14,7 @@ It is a static web app: it installs full screen on a phone, works offline, and c
 - **Help that counts honestly.** Help chips under the scramble: the case (free), hints one move at a time, or the full algorithm. Hints and the algorithm turn the attempt into a miss, marked on the chip and explained under the grade buttons, with a confirmation first.
 - **No accidental double grades.** After Got it or Missed the result stays on screen and a Next scramble button takes the place of the grade buttons, so tapping Got it again after restoring the cube grades nothing (Options, On this device: Pause after each grade).
 - **3D replay.** Plays the solution on a 3D cube starting from your actual scramble (three.js, loaded on first use).
+- **Practise a chosen case.** "Practise it now" in a case's details gives one scramble of that case (adding it to practice if needed). It is a normal attempt, graded and scheduled like any other; it just skips recognition.
 - **Custom algorithms.** Checked against the case before saving; a leading `y` rotation is hidden and the diagram is turned to match.
 - **Cases view.** Grouped like jperm.net, or sorted by weakest first / most recent misses.
 - **Progress view.** Daily attempts, success rate and cases by level, with a table view.

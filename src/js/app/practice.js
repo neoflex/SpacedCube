@@ -128,6 +128,21 @@ export function startFromSetup() {
   state.setupDone = true; S.setupSel.clear(); S.current = null; save();
 }
 
+// One attempt at a case of the user's choice (from its details). A normal attempt: graded and
+// scheduled like any other (the level still only rises after its gap); it just skips recognition.
+// A case not in practice joins it.
+export function practiseNow(id) {
+  const { C, state } = S;
+  if (!state.cases[id].active) { C.introduce(state, id, 0); save(); }
+  S.current = { id, scramble: newScramble(id), revealed: false, isNew: false, hints: 0, picked: true };
+  S.paused = false;
+  S.view = 'practice';
+  render();
+  window.scrollTo(0, 0);
+  focusSoon('#scramble-text');
+  announce(`Practising ${label(id)}. New scramble.`);
+}
+
 export function setActive(id, on) {
   const { C, state } = S;
   const cs = state.cases[id];
@@ -219,8 +234,9 @@ export function practiceView() {
     <section class="card trainer" aria-labelledby="scramble-h">
       <div class="row between"><h2 class="eyebrow" id="scramble-h">Scramble</h2>
         <span class="row" style="gap:10px"><span class="muted" style="font-size:13px">Attempt ${state.rep + 1}</span><span class="duepill ${due ? 'on' : ''}" data-due="${due}">${status.text}</span></span></div>
-      ${!due && !current.isNew ? `<div class="newflag">Nothing is due right now${status.wait ? `: the next case comes due <span class="due-wait">${status.wait}</span>` : ''}. Extra practice keeps you sharp, but levels only rise after a gap, so this is a good moment to stop.</div>` : ''}
+      ${!due && !current.isNew && !current.picked ? `<div class="newflag">Nothing is due right now${status.wait ? `: the next case comes due <span class="due-wait">${status.wait}</span>` : ''}. Extra practice keeps you sharp, but levels only rise after a gap, so this is a good moment to stop.</div>` : ''}
       ${current.isNew ? `<div class="newflag"><b>New case: ${esc(label(id))}.</b> Learn the algorithm below, then scramble and try it.</div>` : ''}
+      ${current.picked ? `<div class="newflag">You picked <b>${esc(label(id))}</b> from its details. After this attempt, practice goes back to the usual order.</div>` : ''}
       ${S.paused ? pausedView() : `<p class="scramble" id="scramble-text" tabindex="-1"><span class="sr-only">Scramble: </span>${moves}</p>
       <p class="hint">Hold yellow on top and green in front, apply the scramble to a solved cube, then solve the ${C.kind === 'pll' ? 'permutation of the last layer. The top face is already solved' : 'orientation of the last layer'}.</p>
       ${answerView()}`}
