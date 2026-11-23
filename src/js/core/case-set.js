@@ -155,7 +155,7 @@ export function makeSet(def) {
     for (const id of CASE_IDS) cases[id] = { active: false, level: 0, n: 0, ok: 0, last: -1, lastTs: 0, hist: '', removed: false, lastMiss: -1 };
     return {
       v: SCHEMA_VERSION, rep: 0, cases, custom: {}, setupDone: false, lastCase: null, prevCase: null,
-      settings: { autoIntro: true, introLevel: 3, randomPLL: true, showFirst: false, pool: 3 },
+      settings: { autoIntro: true, introLevel: 5, randomPLL: true, showFirst: false, pool: 3 },
       updatedAt: 0,
     };
   }

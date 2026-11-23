@@ -29,3 +29,8 @@ test('normalize fills a partial state and keeps known values', () => {
   assert.equal(s.settings.pool, 5);
   assert.equal(s.settings.autoIntro, true);
 });
+
+test('a case counts as learned at Solid by default; a saved choice is kept', () => {
+  assert.equal(sets.OLL.freshState().settings.introLevel, 5);
+  assert.equal(sets.OLL.normalize({ cases: {}, settings: { introLevel: 3 } }).settings.introLevel, 3);
+});

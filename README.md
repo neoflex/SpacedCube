@@ -101,7 +101,7 @@ Each case has a level 0-10. Buckets: 0 New, 1-2 Learning, 3-4 Familiar, 5-6 Soli
 - **Correct:** level rises by one **only if enough time has passed since the case was last seen** (`GAP_MS`): none for 0->1 and 1->2, then 10 min, 8 h, 1 d, 2 d, 4 d, 7 d, 14 d, 30 d. A correct answer while the case is still in short-term memory is recorded but does not raise the level. Reaching Mastered takes at least about a week of spaced successes.
 - **Due:** levels 0-1 are due after a few other attempts; from level 2 a case is due once its gap has passed (`dueRatio`).
 - **Picking:** weighted random, weight = `dueRatio^2` x a factor for a weak recent record (last 20 results, smoothed) x a small boost for cases with few attempts. The last case (and the one before, with 5+ active) is never shown twice in a row.
-- **New cases:** a new case joins whenever fewer than `pool` cases (default 3) are below the "learned" level (Familiar/Solid/Mastered, a setting).
+- **New cases:** a new case joins whenever fewer than `pool` cases (default 3) are below the "learned" level (a setting: Familiar, Solid or Mastered; default Solid, which needs a correct answer after a gap of at least a day).
 
 These rules came from looking at real practice data: with promotions counted on every correct answer, 31 OLL cases reached level 10 within a week and half of all attempts went to cases never missed.
 

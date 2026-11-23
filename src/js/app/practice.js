@@ -225,7 +225,7 @@ function railView() {
     nextHtml = `<p class="muted" style="margin:10px 0 0;font-size:13px">All ${C.CASE_IDS.length} cases are in your practice rotation.</p>`;
   } else {
     const bl = C.blockers(state);
-    const tname = THRESH[state.settings.introLevel] || 'Familiar';
+    const tname = THRESH[state.settings.introLevel] || 'Solid';
     let why;
     if (!state.settings.autoIntro) why = 'Automatic introduction is off.';
     else if (!act.length || !bl.length) why = 'Comes up on your next attempt.';
