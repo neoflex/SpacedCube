@@ -53,8 +53,10 @@ jobs:
           cache: npm
       - run: npm ci
       # Browsers are cached per Playwright version: the download server can be slow, and only an
-      # update of Playwright needs a new download. System libraries are installed every time; the
-      # package mirrors are sometimes stuck, so each attempt is cut off after 4 minutes and retried.
+      # update of Playwright needs a new download. The runner already has the libraries Chromium and
+      # Firefox need (for them install-deps only adds fonts and video codecs, 54 MB from package
+      # mirrors that are sometimes very slow). WebKit needs a few more: they are installed with
+      # retries, and a stuck attempt is cleaned up so the next one can take the package lock.
       - name: Playwright version
         id: pw
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
@@ -68,13 +70,16 @@ jobs:
         if: steps.browser-cache.outputs.cache-hit != 'true'
         timeout-minutes: 10
         run: npx playwright install --with-deps ${{ matrix.browser }}
-      - name: Install system libraries for ${{ matrix.browser }}
-        if: steps.browser-cache.outputs.cache-hit == 'true'
+      - name: Install system libraries for WebKit
+        if: steps.browser-cache.outputs.cache-hit == 'true' && matrix.browser == 'webkit'
         timeout-minutes: 13
         run: |
           for i in 1 2 3; do
-            timeout 240 npx playwright install-deps ${{ matrix.browser }} && exit 0
+            timeout 240 npx playwright install-deps webkit && exit 0
             echo "::warning::Installing system libraries, attempt $i failed or timed out"
+            sudo pkill -x apt-get || true
+            sleep 3
+            sudo dpkg --configure -a || true
           done
           exit 1
       # The tests build dist/ without deployment settings first; the sync test builds its own copy
