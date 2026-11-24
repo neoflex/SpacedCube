@@ -44,7 +44,7 @@ export function gradeCurrent(ok) {
   S.paused = S.pauseAfterGrade && !!S.current;
   render();
   const result = `${ok ? 'Got it' : 'Missed'}: ${label(id)}, now ${C.BUCKETS[C.bucketOf(level)]}.`;
-  if (S.paused) { announce(`${result} Restore your cube, then go to the next scramble.`); focusSoon('#next-btn'); }
+  if (S.paused) { announce(`${result} ${afterGrade(S.lastResult)}`); focusSoon('#next-btn'); }
   else announce(`${result} ${S.current ? 'New scramble.' : ''}`);
 }
 
@@ -196,6 +196,13 @@ function answerView() {
   return `${shown.length ? `<div class="answer">${shown.join('')}</div>` : ''}${chips}`;
 }
 
+// What to do with the cube before the next scramble. Scrambles start from a solved cube, so a PLL
+// that was solved (on your own or with help) leaves it solved; after OLL the last layer is still
+// permuted, and after a miss the cube may be anywhere.
+function afterGrade(L) {
+  return S.C.name === 'PLL' && (L.ok || L.hinted) ? 'Go on when you are ready.' : 'Restore your cube, then go on.';
+}
+
 // After a grade (pause on): the result, and the next scramble behind one button.
 function pausedView() {
   const { C } = S;
@@ -205,7 +212,7 @@ function pausedView() {
       ${diagram(L.id, 72)}
       <div class="pause-text">
         <p class="pause-result ${L.ok ? 'ok' : 'ko'}" id="pause-h">${L.ok ? ICON.ok : ICON.x}${L.ok ? 'Got it' : 'Missed'}: ${esc(label(L.id))}</p>
-        <p class="muted">Now ${C.BUCKETS[C.bucketOf(L.level)]}${L.hinted ? ' (help used)' : ''}. Restore your cube, then go on.</p>
+        <p class="muted">Now ${C.BUCKETS[C.bucketOf(L.level)]}${L.hinted ? ' (help used)' : ''}. ${afterGrade(L)}</p>
         ${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo this grade</button>' : ''}
       </div>
     </div>`;
