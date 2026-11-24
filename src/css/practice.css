@@ -132,7 +132,10 @@
 /* Pause after a grade: the case's diagram beside the result. */
 .pausebox { grid-template-columns: auto minmax(0, auto); justify-content: center; align-items: center; gap: 16px; text-align: left; justify-items: start; }
 .pause-text { display: grid; gap: 4px; justify-items: start; }
-.pause-links { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+/* Case details as a button, Undo as a quieter link, far enough apart to tap the right one. */
+.pause-links { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; margin-top: 8px; }
+.pause-links .btn .ic { width: 16px; height: 16px; }
+.pause-links .linkbtn { padding: 6px 0; }
 .pause-result .ic { margin-left: -2px; }
 
 /* Speed practice: mode switch, start button, the full-screen stop button while timing, the result. */
