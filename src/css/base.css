@@ -195,3 +195,6 @@ body.no-shortcuts kbd { display: none; }
 .foot-links a { color: var(--muted); text-underline-offset: 2px; }
 .foot-links a:hover { color: var(--ink); }
 main { padding-bottom: 28px; }
+
+/* A staging copy says so next to the name. */
+.stage-tag { font-family: var(--font-body); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 99px; background: var(--bad); color: var(--on-strong); vertical-align: middle; }

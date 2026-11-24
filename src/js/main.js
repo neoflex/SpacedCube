@@ -8,6 +8,8 @@ import { listenKeys } from './app/keys.js';
 import { listenCharts } from './app/charts.js';
 import { listenAccount, takeRedirect } from './app/account.js';
 import { listenDue } from './app/due.js';
+import { listenTimer } from './app/timer.js';
+import { CONFIG } from './app/env.js';
 
 hooks.render = render;
 hooks.afterSave = (set) => Sync.schedule(set);
@@ -22,6 +24,10 @@ listenKeys();
 listenCharts();
 listenAccount();
 listenDue(render);
+listenTimer();
+
+// A test copy says so in the header, so it is not mistaken for the real app.
+if (CONFIG.staging) document.querySelector('.brand-name')?.insertAdjacentHTML('beforeend', ' <span class="stage-tag">Staging</span>');
 
 takeRedirect();
 window.addEventListener('hashchange', () => { if (takeRedirect()) { render(); Sync.init(); } });

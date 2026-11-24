@@ -9,10 +9,18 @@ import { watchCurrent } from './viewer3d.js';
 import { settingChanged } from './options.js';
 import { viewerSpeed } from './viewer3d.js';
 import { render } from './state.js';
+import { timerPhase, startTimer, stopTimer } from './timer.js';
+
+const MODIFIERS = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'];
 
 export function listenKeys() {
   document.addEventListener('keydown', (e) => {
     if (viewerKey(e)) return;
+    // Speed timer running: any key stops it (with shortcuts off, Enter or Space on the focused stop button).
+    if (timerPhase() === 'running') {
+      if (S.shortcuts && !e.repeat && !MODIFIERS.includes(e.key)) { e.preventDefault(); stopTimer(); }
+      return;
+    }
     if (S.dialogId != null) {
       if (e.key === 'Escape') closeDialog();
       return;
@@ -30,6 +38,11 @@ export function listenKeys() {
     if (S.paused) {
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'n' || e.key === 'N' || (e.key === ' ' && !onControl)) { e.preventDefault(); nextScramble(); }
       return;
+    }
+    // Speed, before the solve: Space starts the timer; Got it needs a time, Missed is possible.
+    if (c.speed && c.timer.phase === 'ready') {
+      if (e.key === ' ' && !onControl && !c.revealAsk && !c.hintAsk) { e.preventDefault(); startTimer(); return; }
+      if (e.key === 'ArrowRight') { e.preventDefault(); return; }
     }
     if (e.key === ' ' && !onControl) { e.preventDefault(); if (c.revealAsk) confirmReveal(); else askReveal(); }
     else if ((e.key === 'c' || e.key === 'C') && !c.revealed) { e.preventDefault(); showCaseOnly(); }

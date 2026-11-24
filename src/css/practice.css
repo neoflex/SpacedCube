@@ -134,3 +134,23 @@
 .pause-text { display: grid; gap: 4px; justify-items: start; }
 .pause-links { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .pause-result .ic { margin-left: -2px; }
+
+/* Speed practice: mode switch, start button, the full-screen stop button while timing, the result. */
+.trainer-head { gap: 8px 12px; flex-wrap: wrap; }
+.modesw { display: inline-flex; gap: 6px; margin-left: auto; }
+.modesw + .duepill { margin-left: 0; }
+.startbtn { padding: 26px 12px; font-size: 20px; }
+.timer-run {
+  position: fixed; inset: 0; z-index: 60; border: 0; margin: 0; padding: 24px;
+  background: var(--bg); color: var(--ink); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+}
+.timer-run:focus-visible { outline: 3px solid var(--accent); outline-offset: -8px; }
+.timer-clock { font-family: var(--font-mono); font-size: clamp(64px, 22vw, 160px); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+.timer-tip { font-size: 15px; color: var(--muted); }
+.timeres { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.timeres-time { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.timeres-time b { font-family: var(--font-mono); font-size: 26px; font-variant-numeric: tabular-nums; }
+.timeres-time span { font-size: 14px; color: var(--muted); }
+.rail-sub { margin: 14px 0 0; font-size: 13px; font-weight: 600; color: var(--muted); }

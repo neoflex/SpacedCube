@@ -1,18 +1,36 @@
 // Practice: the scramble, help (case, hints, algorithm), grading, and the progress rail.
+// Two modes once Speed is open for a set: Memory (levels) and Speed (timed solves, see timer.js).
 import * as K from '../core/index.js';
 import { S, save, snapshotToday, render } from './state.js';
 import { $, esc, dayKey, pct, THRESH, ICON, announce } from './util.js';
 import { diagram, chip, algFor, label } from './diagrams.js';
 import { onAction } from './actions.js';
 import { dueStatus } from './due.js';
+import { fmtSec } from './timer.js';
 
 const rng = Math.random;
 const kbd = (k) => `<kbd aria-hidden="true">${k}</kbd>`;
 
 export const newScramble = (id) => K.fmt(S.C.makeScramble(id, rng, { randomPLL: S.state.settings.randomPLL }));
 
+// Speed practice: open for this set (all cases Mastered once) and chosen with the mode switch.
+export const isSpeed = () => S.state.settings.mode === 'speed' && S.C.speedReady(S.state);
+
+// A new attempt at a case. In Speed mode it carries a timer and knows whether it is also a
+// memory review (the case was due).
+export function makeCurrent(id, extra = {}) {
+  const cur = { id, scramble: newScramble(id), revealed: false, isNew: false, hints: 0, ...extra };
+  if (isSpeed() && !cur.isNew) Object.assign(cur, { speed: true, revealed: false, timer: { phase: 'ready', ms: 0 } });
+  return cur;
+}
+
 export function nextCase() {
   const { C, state } = S;
+  if (isSpeed()) {
+    const id = C.pickSpeed(state, rng, Date.now());
+    S.current = id == null ? null : makeCurrent(id);
+    return;
+  }
   let isNew = false, id;
   if (C.shouldIntroduce(state)) {
     id = C.nextToIntroduce(state);
@@ -22,31 +40,65 @@ export function nextCase() {
   } else {
     id = C.pickNext(state, rng, Date.now());
   }
-  S.current = id == null ? null : { id, scramble: newScramble(id), revealed: isNew || state.settings.showFirst, isNew, hints: 0 };
+  S.current = id == null ? null : makeCurrent(id, { revealed: isNew || state.settings.showFirst, isNew });
 }
 
 export function gradeCurrent(ok) {
   const { C, state, current } = S;
   if (!current) return;
+  // Speed: Got it needs a time; Missed is always possible (you did not remember it).
+  if (current.speed && ok && current.timer.phase !== 'done') return;
+  if (current.speed && current.timer.phase === 'running') return;
   const hinted = current.hints > 0 || !!current.algSeen;
   if (hinted) ok = false;
-  S.undo = { state: JSON.stringify(state), current: { ...current } };
+  S.undo = { state: JSON.stringify(state), current: { ...current, timer: current.timer && { ...current.timer } } };
   const id = current.id;
-  const level = C.grade(state, id, ok, Date.now());
+  const now = Date.now();
+  let level, review = true, speed = null;
+  if (current.speed) {
+    const turns = K.turnCount(algFor(id));
+    const ms = ok ? current.timer.ms : 0;
+    ({ level, review } = C.gradeSpeed(state, id, ok, ms, turns, now));
+    speed = { ms, turns };
+  } else {
+    level = C.grade(state, id, ok, now);
+  }
+  const opened = C.openSpeedIfReady(state);
+  if (opened) S.speedNews = true;
   snapshotToday();
   const today = state.daily[dayKey()];
   today.n += 1; if (ok) today.ok += 1;
-  S.lastResult = { id, ok, level, hinted };
+  S.lastResult = { id, ok, level, hinted, review, speed };
   save();
   nextCase();
   // Pause: the next scramble waits behind "Next scramble", which takes the place of the grade
   // buttons. Tapping "Got it" again out of habit (after restoring the cube) then grades nothing.
   S.paused = S.pauseAfterGrade && !!S.current;
   render();
-  const result = `${ok ? 'Got it' : 'Missed'}: ${label(id)}, now ${C.BUCKETS[C.bucketOf(level)]}.`;
+  let result = `${ok ? 'Got it' : 'Missed'}: ${label(id)}`;
+  result += speed ? `. ${speedText(S.lastResult)}` : `, now ${C.BUCKETS[C.bucketOf(level)]}.`;
+  if (opened) result += ` Every ${C.name} case is Mastered: Speed practice is open.`;
   if (S.paused) { announce(`${result} ${afterGrade(S.lastResult)}`); focusSoon('#next-btn'); }
   else announce(`${result} ${S.current ? 'New scramble.' : ''}`);
 }
+
+// What a Speed attempt gave: the time and turns per second, the case's speed level, and the
+// memory level when the attempt was also a review.
+export function speedText(L) {
+  const { C, state } = S;
+  const cs = state.cases[L.id];
+  const parts = [];
+  if (L.speed.ms) {
+    parts.push(`${fmtSec(L.speed.ms)} s, ${tpsText((L.speed.turns * 1000) / L.speed.ms)}.`);
+    const sp = K.speedOf(cs);
+    const left = K.RATED_AFTER - cs.times.length;
+    parts.push(sp ? `Speed ${sp.level}: ${tpsText(sp.tps)} over your last ${Math.min(cs.times.length, K.MEDIAN_OF)} solves.`
+      : `${left} more timed solve${left === 1 ? '' : 's'} for a speed level.`);
+  } else parts.push(L.hinted ? 'Help used, so the time is not counted.' : 'The time is not counted.');
+  if (L.review) parts.push(`Memory: now ${C.BUCKETS[C.bucketOf(L.level)]}.`);
+  return parts.join(' ');
+}
+export const tpsText = (tps) => `${tps.toFixed(1)} turns per second`;
 
 // Leaves the pause after a grade and shows the next scramble.
 export function nextScramble() {
@@ -134,7 +186,7 @@ export function startFromSetup() {
 export function practiseNow(id) {
   const { C, state } = S;
   if (!state.cases[id].active) { C.introduce(state, id, 0); save(); }
-  S.current = { id, scramble: newScramble(id), revealed: false, isNew: false, hints: 0, picked: true };
+  S.current = makeCurrent(id, { picked: true });
   S.paused = false;
   S.view = 'practice';
   render();
@@ -212,7 +264,7 @@ function pausedView() {
       ${diagram(L.id, 72)}
       <div class="pause-text">
         <p class="pause-result ${L.ok ? 'ok' : 'ko'}" id="pause-h">${L.ok ? ICON.ok : ICON.x}${L.ok ? 'Got it' : 'Missed'}: ${esc(label(L.id))}</p>
-        <p class="muted">Now ${C.BUCKETS[C.bucketOf(L.level)]}${L.hinted ? ' (help used)' : ''}. ${afterGrade(L)}</p>
+        <p class="muted">${L.speed ? esc(speedText(L)) : `Now ${C.BUCKETS[C.bucketOf(L.level)]}${L.hinted ? ' (help used)' : ''}.`} ${afterGrade(L)}</p>
         <div class="pause-links"><button type="button" class="linkbtn" data-action="open" data-id="${esc(L.id)}">Case details</button>${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo this grade</button>' : ''}</div>
       </div>
     </div>`;
@@ -239,29 +291,64 @@ export function practiceView() {
   if (S.lastResult) {
     const L = S.lastResult;
     last = `<span>Last: ${esc(label(L.id))}</span><span class="${L.ok ? 'ok' : 'ko'}">${L.ok ? 'got it' : 'missed'}</span>
-      ${L.hinted ? '<span>(help used)</span>' : ''}<span>now ${C.BUCKETS[C.bucketOf(L.level)]}</span>${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo</button>' : ''}`;
+      ${L.hinted ? '<span>(help used)</span>' : ''}${L.speed ? `<span>${L.speed.ms ? fmtSec(L.speed.ms) + ' s' : 'not timed'}</span>` : `<span>now ${C.BUCKETS[C.bucketOf(L.level)]}</span>`}${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo</button>' : ''}`;
   }
+  const solveText = current.speed
+    ? 'look at the case. Start the timer when your hands are ready and stop it when the last layer is done: only the solve is timed'
+    : `solve the ${C.kind === 'pll' ? 'permutation of the last layer. The top face is already solved' : 'orientation of the last layer'}`;
+  const helpedNote = `Recorded as missed: you used a hint or saw the algorithm${current.speed ? ', so the time is not counted' : ''}.`;
   return `${title}<div class="practice">
     <section class="card trainer" aria-labelledby="scramble-h">
-      <div class="row between"><h2 class="eyebrow" id="scramble-h">Scramble</h2>
-        <span class="duepill ${due ? 'on' : ''}" data-due="${due}">${status.text}</span></div>
-      ${!due && !current.isNew && !current.picked ? `<div class="newflag">${ICON.clock}<p><b>Nothing is due right now.</b>${status.wait ? ` The next case comes due <span class="due-wait">${status.wait}</span>.` : ''} Extra practice keeps you sharp, but levels only rise after a gap, so this is a good moment to stop.</p></div>` : ''}
+      <div class="row between trainer-head"><h2 class="eyebrow" id="scramble-h">${current.speed ? 'Speed' : 'Scramble'}</h2>
+        ${modeSwitch()}<span class="duepill ${due ? 'on' : ''}" data-due="${due}">${status.text}</span></div>
+      ${S.speedNews && !current.speed ? `<div class="newflag">${ICON.star}<p><b>Speed practice is open.</b> Every ${C.name} case is Mastered. Choose Speed above to time your solves and get faster.</p></div>` : ''}
+      ${!due && !current.isNew && !current.picked && !current.speed ? `<div class="newflag">${ICON.clock}<p><b>Nothing is due right now.</b>${status.wait ? ` The next case comes due <span class="due-wait">${status.wait}</span>.` : ''} Extra practice keeps you sharp, but levels only rise after a gap, so this is a good moment to stop.</p></div>` : ''}
       ${current.isNew ? `<div class="newflag">${ICON.star}<p><b>New case: ${esc(label(id))}.</b> Learn the algorithm below, then scramble and try it.</p></div>` : ''}
       ${current.picked ? `<div class="newflag">${ICON.target}<p>You picked <b>${esc(label(id))}</b> from its details. After this attempt, practice goes back to the usual order.</p></div>` : ''}
       ${S.paused ? pausedView() : `<p class="scramble" id="scramble-text" tabindex="-1"><span class="sr-only">Scramble: </span>${moves}</p>
-      <p class="hint">Hold yellow on top and green in front, apply the scramble to a solved cube, then solve the ${C.kind === 'pll' ? 'permutation of the last layer. The top face is already solved' : 'orientation of the last layer'}.</p>
+      <p class="hint">Hold yellow on top and green in front, apply the scramble to a solved cube, then ${solveText}.</p>
       ${answerView()}`}
       <div class="thumbbar">
-        ${S.paused ? `<button type="button" class="nextbtn" id="next-btn" data-action="next">Next scramble ${ICON.next} ${kbd('→')}</button>` : `<div class="grades" role="group" aria-label="How did it go?">
+        ${S.paused ? `<button type="button" class="nextbtn" id="next-btn" data-action="next">Next scramble ${ICON.next} ${kbd('→')}</button>`
+          : current.speed && current.timer.phase !== 'done' ? timerBar() : `${current.speed ? timeResult() : ''}<div class="grades" role="group" aria-label="How did it go?">
           <button type="button" class="grade miss" data-action="grade" data-ok="0">${ICON.x}Missed ${kbd('←')}</button>
           <button type="button" class="grade hit" data-action="grade" data-ok="1" aria-describedby="grade-note">${ICON.ok}${helped ? 'Solved with help' : 'Got it'} ${kbd('→')}</button>
         </div>
-        <p class="gradenote" id="grade-note">${helped ? 'Recorded as missed: you used a hint or saw the algorithm.' : current.revealed ? '' : '<span class="costdot" aria-hidden="true"></span>Hint and Algorithm count the attempt as missed.'}</p>`}
-        <div class="thumbfoot">${!S.paused && last ? `<div class="last">${last}</div>` : ''}<span class="attempt">Attempt ${state.rep + 1}</span></div>
+        <p class="gradenote" id="grade-note">${helped ? helpedNote : current.revealed ? '' : '<span class="costdot" aria-hidden="true"></span>Hint and Algorithm count the attempt as missed.'}</p>`}
+        <div class="thumbfoot">${!S.paused && last ? `<div class="last">${last}</div>` : ''}${current.speed ? '' : `<span class="attempt">Attempt ${state.rep + 1}</span>`}</div>
       </div>
     </section>
     ${rail}
-  </div>`;
+  </div>${current.speed && current.timer.phase === 'running' ? timerScreen() : ''}`;
+}
+
+// Memory or Speed, once Speed is open for this set.
+function modeSwitch() {
+  if (!S.C.speedReady(S.state)) return '';
+  const on = isSpeed();
+  const b = (mode, text, pressed) => `<button type="button" class="fchip" data-action="mode" data-p="${mode}" aria-pressed="${pressed}">${text}</button>`;
+  return `<div class="modesw" role="group" aria-label="Practice mode">${b('memory', 'Memory', !on)}${b('speed', 'Speed', on)}</div>`;
+}
+
+// Speed, before the solve: one large Start button. Missed stays possible (you do not remember it).
+function timerBar() {
+  return `<button type="button" class="nextbtn startbtn" id="timer-start" data-action="timer-start">${ICON.clock}Start the timer ${kbd('Space')}</button>
+    <p class="gradenote"><button type="button" class="linkbtn" data-action="grade" data-ok="0">I do not remember it (Missed)</button></p>`;
+}
+
+// While timing: the whole screen is the stop button. The clock is visual only; the result is announced.
+function timerScreen() {
+  return `<button type="button" class="timer-run" id="timer-stop" data-action="timer-stop">
+    <span class="sr-only">Stop the timer</span><span class="timer-clock" id="timer-clock" aria-hidden="true">0.00</span>
+    <span class="timer-tip" aria-hidden="true">${S.shortcuts ? 'Tap anywhere or press any key to stop' : 'Tap anywhere or press Enter to stop'}</span></button>`;
+}
+
+// Speed, after the solve: the time and its turns per second, then the grade buttons.
+function timeResult() {
+  const t = S.current.timer;
+  const turns = K.turnCount(algFor(S.current.id));
+  return `<div class="timeres"><p class="timeres-time"><b>${fmtSec(t.ms)} s</b><span>${tpsText((turns * 1000) / t.ms)}</span></p>
+    <button type="button" class="linkbtn" data-action="retime">False start: time it again</button></div>`;
 }
 
 function railView() {
@@ -318,8 +405,34 @@ function railView() {
       <div class="legend" aria-hidden="true">${legend}</div>
     </section>
     <section class="card" aria-labelledby="rail-next"><h2 id="rail-next">Next new case</h2>${nextHtml}</section>
+    ${speedRail()}
     <section class="card" aria-labelledby="rail-weak"><h2 id="rail-weak">Needs the most work</h2>${focus}</section>
   </aside>`;
+}
+
+// Speed in the rail: how far from opening, or the slowest cases with their turns per second.
+function speedRail() {
+  const { C, state } = S;
+  const N = C.CASE_IDS.length;
+  const head = '<h2 id="rail-speed">Your speed</h2>';
+  if (!C.speedReady(state)) {
+    const m = C.masteredCount(state);
+    return `<section class="card" aria-labelledby="rail-speed">${head}
+      <p class="muted" style="margin:8px 0 0;font-size:13px">Timed practice to get faster opens once all ${N} ${C.name} cases are Mastered. Now ${m} of ${N}.</p></section>`;
+  }
+  const rated = C.speedIds(state).map((id) => ({ id, sp: K.speedOf(state.cases[id]) })).filter((r) => r.sp);
+  if (!rated.length) {
+    return `<section class="card" aria-labelledby="rail-speed">${head}
+      <p class="muted" style="margin:8px 0 0;font-size:13px">No speed levels yet. A case gets one after ${K.RATED_AFTER} timed solves.</p></section>`;
+  }
+  const typical = K.median(rated.map((r) => r.sp.tps));
+  const slow = rated.sort((a, b) => a.sp.tps - b.sp.tps).slice(0, 5);
+  return `<section class="card" aria-labelledby="rail-speed">${head}
+    <p class="muted" style="margin:8px 0 0;font-size:13px">${rated.length} of ${N} cases rated. Typical: ${tpsText(typical)}.</p>
+    <h3 class="rail-sub">Slowest</h3>
+    <ul class="focus">${slow.map(({ id, sp }) => `<li><button type="button" data-action="open" data-id="${id}">${diagram(id, 34, true)}
+      <span>${esc(label(id))}</span><span class="pct">${sp.tps.toFixed(1)}<span aria-hidden="true">/s</span><span class="sr-only"> turns per second</span></span></button></li>`).join('')}</ul>
+  </section>`;
 }
 
 onAction({
@@ -331,13 +444,21 @@ onAction({
   next: () => nextScramble(),
   'show-case': () => showCaseOnly(),
   grade: (el) => gradeCurrent(el.dataset.ok === '1'),
+  mode: (el) => {
+    const mode = el.dataset.p;
+    if (S.state.settings.mode === mode) return;
+    S.state.settings.mode = mode;
+    S.speedNews = false; S.current = null; S.paused = false; S.lastResult = null; S.undo = null;
+    save(); render();
+    announce(mode === 'speed' ? 'Speed practice. Look at the case, then start the timer.' : 'Memory practice.');
+  },
   undo: () => doUndo(),
   'add-next': () => {
     const { C, state } = S;
     const n = C.nextToIntroduce(state);
     if (n == null) return;
     C.introduce(state, n, 0); save();
-    S.current = { id: n, scramble: newScramble(n), revealed: true, isNew: true, hints: 0 };
+    S.current = makeCurrent(n, { revealed: true, isNew: true });
     render();
     announce(`${label(n)} added. Its algorithm is shown.`);
   },

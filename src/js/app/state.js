@@ -32,6 +32,7 @@ export const S = {
   shortcuts: true,
   pauseAfterGrade: true, // device setting: wait for "Next scramble" after each grade
   paused: false,         // a grade was just given; the next scramble waits
+  speedNews: false,      // Speed practice has just opened: say so on the practice screen
 };
 
 // Hooks set by main.js, so modules need not import each other in a circle.
@@ -135,7 +136,7 @@ export function switchSet(name) {
   Object.assign(ctx[S.set], { state: S.state, current: S.current, lastResult: S.lastResult, undo: S.undo, view: S.view });
   S.set = name; S.C = K.sets[name];
   ({ state: S.state, current: S.current, lastResult: S.lastResult, undo: S.undo, view: S.view } = ctx[name]);
-  S.paused = false;
+  S.paused = false; S.speedNews = false;
   S.setupSel.clear(); S.filter = 'all'; S.sortBy = 'group'; S.dialogId = null; S.dataPanel = null; S.dataMsg = null;
   try { localStorage.setItem(SET_KEY, name); } catch (e) { /* storage blocked */ }
   return true;

@@ -7,4 +7,5 @@ export const CONFIG = {
   supabaseKey: String(raw.supabaseKey || ''),
   allowSignup: !!raw.allowSignup,
   turnstileSiteKey: String(raw.turnstileSiteKey || ''),
+  staging: !!raw.staging, // a test copy: Staging tag in the header, test tools in Options
 };

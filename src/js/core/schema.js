@@ -4,11 +4,16 @@
 // To change the format: bump SCHEMA_VERSION and add STEPS[old] that turns a version-old state
 // into a version-old+1 state. Never edit a step once released: old backups still go through it.
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /** @type {Record<number, (s: any) => any>} */
 const STEPS = {
-  // 1: (s) => ({ ...s, newField: defaultValue }),
+  // 2: speed practice. Each case keeps its timed solves; a set remembers that Speed was opened.
+  1: (s) => ({
+    ...s,
+    speedOpen: false,
+    cases: Object.fromEntries(Object.entries(s.cases || {}).map(([id, cs]) => [id, { ...cs, times: [] }])),
+  }),
 };
 
 /** A state written by a newer version of the app: this version must not read or overwrite it. */

@@ -1,10 +1,12 @@
-// Case dialog: algorithm, custom algorithm, record, add/remove/reset.
+// Case dialog: algorithm, custom algorithm, record, speed, add/remove/reset.
+import * as K from '../core/index.js';
 import { S, save, render } from './state.js';
 import { $, esc, pct, announce } from './util.js';
 import { diagram, chip, algFor, label, nextLevelText } from './diagrams.js';
 import { setActive, practiseNow } from './practice.js';
 import { onAction } from './actions.js';
 import { modalOpened, modalClosed } from './modal.js';
+import { fmtSec } from './timer.js';
 
 export function renderDialog() {
   const { C, state } = S;
@@ -44,6 +46,7 @@ export function renderDialog() {
       ${hist ? `<div class="hist"><span>Recent, oldest first:</span><span aria-hidden="true">${hist}</span><span class="sr-only">${histText}</span></div>` : ''}
       ${cs.active && cs.level < C.MAX_LEVEL ? `<p class="muted" style="margin:0;font-size:13px">${nextLevelText(cs)}</p>` : ''}
     </section>
+    ${speedSection(id)}
     <div class="actions">
       <button type="button" class="btn small primary" data-action="practise-now">Practise it now</button>
       ${cs.active ? '<button type="button" class="btn small" data-action="dlg-toggle" data-on="0">Remove from practice</button>' : '<button type="button" class="btn small" data-action="dlg-toggle" data-on="1">Add to practice</button>'}
@@ -55,6 +58,29 @@ export function renderDialog() {
   // Keep focus where it was (the same control after a re-render), else start on the close button.
   const again = focusKey && /** @type {HTMLElement | null} */ (document.getElementById(focusKey) || box.querySelector(`[data-action="${focusKey}"]`));
   /** @type {HTMLElement} */ (again || box.querySelector('.x')).focus();
+}
+
+// Timed solves of the case, once Speed is open for the set (or the case has times).
+function speedSection(id) {
+  const { C, state } = S;
+  const cs = state.cases[id];
+  if (!C.speedReady(state) && !cs.times.length) return '';
+  const sp = K.speedOf(cs);
+  const turns = K.turnCount(algFor(id));
+  const times = cs.times.map(([ms]) => fmtSec(ms)).join(', ');
+  const notes = [`${turns} turns in your algorithm.`];
+  notes.push(times ? `Times in seconds, oldest first: ${times}.` : 'No timed solves yet.');
+  if (!sp) notes.push(`A speed level comes after ${K.RATED_AFTER} timed solves: the turns per second of your last ${K.MEDIAN_OF}, rounded down.`);
+  if (C.speedReady(state) && !C.isMastered(state, id)) notes.push('It comes back to Speed practice once it is Mastered again.');
+  return `<section class="sec" aria-labelledby="dlg-speed"><h3 id="dlg-speed">Speed</h3>
+      <ul class="kv" role="list">
+        <li><b>${sp ? sp.level : '–'}</b><span>speed level</span></li>
+        <li><b>${sp ? sp.tps.toFixed(1) : '–'}</b><span>turns per second</span></li>
+        <li><b>${sp ? fmtSec(sp.ms) + ' s' : '–'}</b><span>median time</span></li>
+        <li><b>${cs.times.length ? fmtSec(K.bestMs(cs)) + ' s' : '–'}</b><span>best time</span></li>
+      </ul>
+      <p class="muted" style="margin:0;font-size:13px">${notes.join(' ')}</p>
+    </section>`;
 }
 
 export function closeDialog() {
@@ -86,7 +112,7 @@ onAction({
     announce(`${label(S.dialogId)} set to Solid.`);
   },
   'reset-case': () => {
-    Object.assign(S.state.cases[S.dialogId], { level: 0, n: 0, ok: 0, last: -1, lastTs: 0, hist: '', lastMiss: -1 });
+    Object.assign(S.state.cases[S.dialogId], { level: 0, n: 0, ok: 0, last: -1, lastTs: 0, hist: '', lastMiss: -1, times: [] });
     save(); render();
     announce(`${label(S.dialogId)} reset.`);
   },

@@ -3,7 +3,8 @@
 import { solvedCube, applyMove, applyMoves } from './cube.js';
 import { parse, fmt, invert, toFaceTurns, simplify } from './notation.js';
 import { f2lIntact, llOriented, solvedFixed, topPattern, patKey, patKeys4, llSideKey, pllKeys, pllArrows, sideColors } from './inspect.js';
-import { MAX_LEVEL, INTERVALS, GAP_MS, bucketOf, BUCKETS, successRate, lastMissRep } from './scheduler.js';
+import { MAX_LEVEL, MASTERED, INTERVALS, GAP_MS, bucketOf, BUCKETS, successRate, lastMissRep } from './scheduler.js';
+import { speedOf, addTime } from './speed.js';
 import { PLL_DEF } from './cases-pll.js';
 import { SCHEMA_VERSION, migrate } from './schema.js';
 
@@ -152,10 +153,10 @@ export function makeSet(def) {
 
   function freshState() {
     const cases = {};
-    for (const id of CASE_IDS) cases[id] = { active: false, level: 0, n: 0, ok: 0, last: -1, lastTs: 0, hist: '', removed: false, lastMiss: -1 };
+    for (const id of CASE_IDS) cases[id] = { active: false, level: 0, n: 0, ok: 0, last: -1, lastTs: 0, hist: '', removed: false, lastMiss: -1, times: [] };
     return {
-      v: SCHEMA_VERSION, rep: 0, cases, custom: {}, setupDone: false, lastCase: null, prevCase: null,
-      settings: { autoIntro: true, introLevel: 5, randomPLL: true, showFirst: false, pool: 3 },
+      v: SCHEMA_VERSION, rep: 0, cases, custom: {}, setupDone: false, lastCase: null, prevCase: null, speedOpen: false,
+      settings: { autoIntro: true, introLevel: 5, randomPLL: true, showFirst: false, pool: 3, mode: 'memory' },
       updatedAt: 0,
     };
   }
@@ -166,7 +167,10 @@ export function makeSet(def) {
     if (!raw || typeof raw !== 'object') return f;
     const s = migrate(raw);
     const out = { ...f, ...s, settings: { ...f.settings, ...(s.settings || {}) }, custom: { ...(s.custom || {}) }, cases: {} };
-    for (const id of CASE_IDS) out.cases[id] = { ...f.cases[id], ...((s.cases || {})[id] || {}) };
+    for (const id of CASE_IDS) {
+      const cs = out.cases[id] = { ...f.cases[id], ...((s.cases || {})[id] || {}) };
+      cs.times = Array.isArray(cs.times) ? cs.times.filter((t) => Array.isArray(t) && t[0] > 0 && t[1] > 0) : [];
+    }
     out.lastCase = out.lastCase == null ? null : String(out.lastCase);
     out.prevCase = out.prevCase == null ? null : String(out.prevCase);
     return out;
@@ -254,6 +258,49 @@ export function makeSet(def) {
     s.lastCase = id;
     return cs.level;
   }
+  // ---------- Speed practice ----------
+  // Opens for a set once every case is Mastered, and stays open. Only Mastered cases are timed;
+  // a case that drops below goes back to memory practice until it is Mastered again.
+  const isMastered = (s, id) => s.cases[id].active && s.cases[id].level >= MASTERED;
+  const masteredCount = (s) => CASE_IDS.filter((id) => isMastered(s, id)).length;
+  const speedReady = (s) => !!s.speedOpen || masteredCount(s) === CASE_IDS.length;
+  // Call after every grade: true when Speed has just opened.
+  function openSpeedIfReady(s) {
+    if (s.speedOpen || masteredCount(s) < CASE_IDS.length) return false;
+    s.speedOpen = true;
+    return true;
+  }
+  const speedIds = (s) => CASE_IDS.filter((id) => isMastered(s, id));
+  // Memory reviews first: a due case comes up as a timed solve and counts for both. Otherwise a
+  // Mastered case, slower ones more often (weight 1/tps^2; untimed cases as if at 2 turns per second).
+  function pickSpeed(s, rng, now) {
+    const recent = [s.lastCase, s.prevCase].filter((x) => x != null);
+    const fresh = (ids) => (ids.length > 1 ? ids.filter((id) => !recent.includes(id)) : ids);
+    const due = fresh(dueIds(s, now));
+    if (due.length) return weighted(due, (id) => weightOf(s.cases[id], s.rep, now), rng);
+    let pool = fresh(speedIds(s));
+    if (!pool.length) pool = speedIds(s);
+    if (!pool.length) return pickNext(s, rng, now);
+    return weighted(pool, (id) => { const sp = speedOf(s.cases[id]); const tps = sp ? Math.max(0.5, sp.tps) : 2; return 1 / (tps * tps); }, rng);
+  }
+  function weighted(ids, wOf, rng) {
+    const w = ids.map(wOf);
+    let r = rng() * w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < ids.length; i++) { r -= w[i]; if (r <= 0) return ids[i]; }
+    return ids[ids.length - 1];
+  }
+  // A Speed attempt. The memory level only changes when the case was due (a review) or missed;
+  // a correct solve of a case that is not due leaves it alone, so speed work does not delay the
+  // next memory review. A correct solve without help adds its time (ms > 0).
+  function gradeSpeed(s, id, ok, ms, turns, now) {
+    const review = !ok || isDue(s, id, now);
+    let level = s.cases[id].level;
+    if (review) level = grade(s, id, ok, now);
+    else { s.prevCase = s.lastCase; s.lastCase = id; }
+    if (ok && ms > 0 && turns > 0) addTime(s.cases[id], ms, turns);
+    return { level, review };
+  }
+
   const orderIdx = Object.fromEntries(CASE_IDS.map((id, i) => [id, i]));
   function sortWeakest(s, ids) {
     return ids.slice().sort((a, b) => {
@@ -276,6 +323,7 @@ export function makeSet(def) {
     GROUPS: def.GROUPS, CASES, CASE_IDS, INTRO_ORDER, checkAlg, makeScramble, matches, viewFor, stripLead, solvePath,
     MAX_LEVEL, INTERVALS, BUCKETS, bucketOf, lastMissRep, sortWeakest, sortRecentMisses,
     GAP_MS, dueRatio, nextLevelAt: (cs) => (cs.lastTs ? cs.lastTs + GAP_MS[cs.level] : 0),
-    freshState, normalize, weightOf, extraFactor, activeIds, dueIds, nextDueAt, pickNext, nextToIntroduce, blockers, shouldIntroduce, introduce, grade,
+    freshState, normalize, weightOf, extraFactor, activeIds, dueIds, isDue,
+    MASTERED, isMastered, masteredCount, speedReady, openSpeedIfReady, speedIds, pickSpeed, gradeSpeed, nextDueAt, pickNext, nextToIntroduce, blockers, shouldIntroduce, introduce, grade,
   };
 }

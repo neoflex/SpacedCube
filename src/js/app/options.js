@@ -6,6 +6,7 @@ import { Sync } from './sync.js';
 import { accountView } from './account.js';
 import { newScramble } from './practice.js';
 import { onAction } from './actions.js';
+import { CONFIG } from './env.js';
 
 export function syncText() {
   const ok = S.storageOK;
@@ -63,7 +64,7 @@ export function optionsView() {
       ${opt('o-pause', 'pause', S.pauseAfterGrade, 'Pause after each grade',
         'After Got it or Missed, the result stays on screen and the next scramble waits behind a Next scramble button, in the same place. Restore your cube at your pace; tapping Got it again by habit cannot grade a scramble you have not seen.')}
       ${opt('o-shortcuts', 'shortcuts', S.shortcuts, 'Single-key shortcuts',
-        'While practising: right arrow for Got it, left arrow for Missed, Space to show the algorithm, C to show the case, H for a hint, W to watch it in 3D, Ctrl+Z to undo. Turn them off if they get in the way of speech input or other assistive tools. Every action also has a button.')}
+        'While practising: right arrow for Got it, left arrow for Missed, Space to show the algorithm, C to show the case, H for a hint, W to watch it in 3D, Ctrl+Z to undo. In Speed practice, Space starts the timer and any key stops it. Turn them off if they get in the way of speech input or other assistive tools. Every action also has a button.')}
     </section>
     <section class="card prose" aria-labelledby="o-how">
       <h2 id="o-how">How cases are picked</h2>
@@ -73,6 +74,9 @@ export function optionsView() {
       <p>Two adjustments then favour some cases over others that are equally due. A weaker recent record (your last 20 results) raises the weight: a case you get right 60% of the time comes up about 1.4 times as often as one you always get right. A case with few attempts gets a small boost that fades after about 15 to 20 attempts. Together they can roughly double a case's chance.</p>
       <ul class="ladder" aria-label="Minimum gap before a level rises">${ladder}</ul>
       <p class="muted" style="font-size:13px">Minimum time since a case was last seen before a correct answer raises its level. Levels 0 to 2 are Learning (0 is New), 3 and 4 Familiar, 5 and 6 Solid, 7 and up Mastered.</p>
+      <h3>Speed</h3>
+      <p>Once every case of a set is Mastered, Speed practice opens for that set and stays open. You look at the case, start the timer, solve, and stop it, so only the solve is timed. Each case gets a <b>speed level</b>: the turns per second of your last ${K.MEDIAN_OF} timed solves (median), rounded down. Level 4 means at least 4 turns per second, so a short algorithm and a long one are judged alike. Rotations do not count as turns.</p>
+      <p>Speed practice picks slower cases more often. A case that is due for its memory review comes up first and the timed solve counts as the review. Otherwise a correct timed solve leaves the memory level alone, so speed work never delays a review. A miss counts for memory as usual, and a case that falls below Mastered goes back to memory practice until it is Mastered again.</p>
       <div class="sec" style="margin-top:12px">
         <p style="margin:0">Levels earned before this rule existed may be higher than your long-term memory supports. You can cap every case at Solid (level 5) so the higher levels have to be earned again with real gaps.</p>
         ${S.recalAsk ? `<div class="confirm" role="group" aria-labelledby="recal-h"><b id="recal-h">Cap all ${C.name} cases at Solid?</b><span>Cases above level 5 go back to level 5. Attempts and history are kept.</span>
@@ -93,8 +97,21 @@ export function optionsView() {
       ${panel}
       ${S.dataMsg ? `<p class="msg ${S.dataMsg.ok ? 'ok' : 'err'}">${esc(S.dataMsg.text)}</p>` : ''}
     </section>
+    ${CONFIG.staging ? stagingTools() : ''}
     <p class="muted" style="font-size:13px">${C.kind === 'pll' ? 'PLL algorithms are the widely used standard set; a closing U turn is included where the algorithm needs one.' : 'OLL algorithms and case numbers follow <a href="https://jperm.net/algs/oll">jperm.net/algs/oll</a>.'} Every case diagram and scramble on this page is computed from the algorithms by a cube simulator.</p>
   </div>`;
+}
+
+// Only in a test copy (STAGING at build time): shortcuts to states that take weeks to reach.
+let stageMsg = '';
+function stagingTools() {
+  const { C } = S;
+  return `<section class="card" aria-labelledby="o-staging">
+      <h2 id="o-staging">Test tools</h2>
+      <p class="muted" style="margin:8px 0 12px;font-size:13px">This is a staging copy. These tools exist only here, to try features without waiting.</p>
+      <div class="row"><button type="button" class="btn small" data-action="stage-master">Make every ${C.name} case Mastered</button></div>
+      ${stageMsg ? `<p class="msg ok">${esc(stageMsg)}</p>` : ''}
+    </section>`;
 }
 
 // Settings take effect at once (no Save button).
@@ -111,6 +128,21 @@ export function settingChanged(el) {
 const focusAfter = (sel) => { const el = $(sel); if (el) el.focus(); };
 
 onAction({
+  'stage-master': () => {
+    const { C, state } = S;
+    const now = Date.now();
+    for (const id of C.CASE_IDS) {
+      const cs = state.cases[id];
+      C.introduce(state, id, C.MASTERED);
+      // Seen just now, so nothing is due: a fresh test state behaves like weeks of practice.
+      cs.lastTs = now; cs.n = Math.max(cs.n, 1); cs.ok = Math.max(cs.ok, 1); cs.last = state.rep;
+    }
+    state.setupDone = true;
+    C.openSpeedIfReady(state);
+    S.current = null; S.undo = null; S.lastResult = null;
+    stageMsg = `Every ${C.name} case is Mastered. Speed practice is open on the Practice screen.`;
+    save(); render(); announce(stageMsg); focusAfter('[data-action="stage-master"]');
+  },
   recal: () => { S.recalAsk = true; S.recalMsg = null; render(); focusAfter('[data-action="recal-no"]'); },
   'recal-no': () => { S.recalAsk = false; render(); focusAfter('[data-action="recal"]'); },
   'recal-yes': () => {

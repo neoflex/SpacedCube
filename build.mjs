@@ -21,6 +21,7 @@
 //   PRIVACY_DATA_LOCATION      where Supabase stores the data, e.g. "Servers in Ireland (EU)."
 //   PRIVACY_EMAIL_PROVIDER     who sends the sign-in emails, e.g. "Brevo (EU)"
 //   PRIVACY_HOSTING            who hosts the files (default: GitHub Pages)
+//   STAGING                    "true": a test copy (a Staging tag, and test tools in Options)
 //   REPOSITORY_URL             source code link in the footer (in GitHub Actions: this repository, automatically)
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -57,6 +58,7 @@ const config = {
   supabaseKey: env('SUPABASE_PUBLISHABLE_KEY'),
   allowSignup: truthy(env('ALLOW_SIGNUP')),
   turnstileSiteKey: env('TURNSTILE_SITE_KEY'),
+  staging: truthy(env('STAGING')),
 };
 if (!!config.supabaseUrl !== !!config.supabaseKey) fail('Set both SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY, or neither.');
 let supaOrigin = '';
