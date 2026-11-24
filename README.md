@@ -194,11 +194,12 @@ A Cloudflare Worker serves the `staging` branch at a fixed address and gives eve
 
 ### Trying a change
 
-1. Work on a branch and open a pull request. The workflow runs every test, as for any pull request.
-2. Cloudflare builds the branch and shows its preview address in the build log and on the pull request's checks. A preview address starts with empty storage, which shows what a new user sees.
-3. For a longer trial, push the branch to `staging` (`git push -f origin HEAD:staging`). That address keeps its storage, sign-in and installed app between builds.
-4. Changing the saved-state format: in the live app use Options > Show backup code, restore it on staging, then sign in, so the upgrade step runs on real progress.
-5. Merge into `main`: the workflow tests again and publishes to GitHub Pages.
+1. Work on a branch, run `npm test`, then push the branch to `staging` (`git push -f origin HEAD:staging`). Cloudflare rebuilds the staging address in about a minute; it keeps its storage, sign-in and installed app between builds.
+2. Try the change there, on the phone too.
+3. Changing the saved-state format: in the live app use Options > Show backup code, restore it on staging, then sign in, so the upgrade step runs on real progress.
+4. Merge into `main`: the workflow tests again and publishes to GitHub Pages.
+
+Every other pushed branch also gets a preview address (in the Cloudflare build log), which starts with empty storage and shows what a new user sees. Signing in there needs `https://*-<worker>.<your-subdomain>.workers.dev/**` in the staging project's Redirect URLs.
 
 ## Credits and licences
 
