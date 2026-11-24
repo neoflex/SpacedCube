@@ -173,6 +173,34 @@ The publishable key and the Turnstile site key are public by design; the row-lev
 
 Options > Show backup code (once per set), then Options > Restore from backup in the other copy. The code is restored into the set it belongs to and synced once you sign in.
 
+## Testing before deployment
+
+Larger changes are tried on a staging copy before they reach `main`. Staging has its own address and its own Supabase project, for three reasons:
+
+- Local storage and the service worker belong to the address. A test build under the live site (say `/next/`) would read and upgrade your real progress, and the live service worker would serve its cached files in place of the new ones.
+- Sync is whole-state, newest wins. A test build syncing to the live project could upload a state in a newer format, which the live app then refuses and stops syncing.
+- Installing the app and offline mode need HTTPS, so a phone cannot test them against `npm start` on a laptop.
+
+Cloudflare Pages builds every branch except `main` and gives each its own preview address; GitHub Pages keeps publishing `main` as before.
+
+### Setting up staging (once)
+
+1. A second Supabase project (the free plan allows two). SQL editor: run `supabase/schema.sql`. Authentication > URL Configuration: Site URL and Redirect URLs set to `https://staging.<cloudflare-project>.pages.dev` and `https://*.<cloudflare-project>.pages.dev/**`. Leave sign-ups off and add yourself under Authentication > Users; the built-in email sender is enough, since it mails members of your Supabase team.
+2. Cloudflare dashboard > Workers & Pages > Create > Pages > Connect to Git: this repository. Build command `node build.mjs`, output directory `dist`, no framework.
+3. The project's Settings > Variables and Secrets, for **Preview**: `NODE_VERSION` = `22`, `SKIP_DEPENDENCY_INSTALL` = `true` (the build needs only Node), `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` of the staging project, `REPOSITORY_URL`, and `PRIVACY_HOSTING` = `Cloudflare Pages (Cloudflare, United States, under the EU-US Data Privacy Framework)` with the other `PRIVACY_*` values. No `TURNSTILE_SITE_KEY` and no `ALLOW_SIGNUP`, unless the change is about signing in; then add the preview hostname to the Turnstile widget and set both.
+4. Settings > Builds & deployments: production branch `main` with automatic production deployments **off** (GitHub Pages is the live copy), preview deployments for all other branches.
+5. Create a branch named `staging` and push it. It is served at `https://staging.<cloudflare-project>.pages.dev`; install that address on your phone.
+
+Preview builds carry `X-Robots-Tag: noindex`, so search engines do not list them.
+
+### Trying a change
+
+1. Work on a branch and open a pull request. The workflow runs every test, as for any pull request.
+2. Cloudflare comments on the pull request with the preview address. Each commit gets its own address with empty storage, which shows what a new user sees.
+3. For a longer trial, push the branch to `staging` (`git push -f origin HEAD:staging`). That address keeps its storage, sign-in and installed app between builds.
+4. Changing the saved-state format: in the live app use Options > Show backup code, restore it on staging, then sign in, so the upgrade step runs on real progress.
+5. Merge into `main`: the workflow tests again and publishes to GitHub Pages.
+
 ## Credits and licences
 
 - OLL algorithms and numbering as listed on [jperm.net](https://jperm.net/algs/oll); diagrams, scrambles and all code are original.

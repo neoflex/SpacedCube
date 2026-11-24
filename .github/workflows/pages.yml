@@ -1,5 +1,6 @@
 # Checks and tests the app, then builds it with this repository's settings and publishes it to
 # GitHub Pages. Pull requests (and manual runs on other branches) run the checks and tests only.
+# Branches are also built by Cloudflare Pages as staging previews: see README, "Testing before deployment".
 #
 # Deployment settings come from repository variables (Settings > Secrets and variables > Actions >
 # Variables), so the code holds nothing specific to one deployment. See README, "Deploying your own copy".
