@@ -132,4 +132,5 @@
 /* Pause after a grade: the case's diagram beside the result. */
 .pausebox { grid-template-columns: auto minmax(0, auto); justify-content: center; align-items: center; gap: 16px; text-align: left; justify-items: start; }
 .pause-text { display: grid; gap: 4px; justify-items: start; }
+.pause-links { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .pause-result .ic { margin-left: -2px; }

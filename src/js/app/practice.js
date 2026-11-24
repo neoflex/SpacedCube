@@ -213,7 +213,7 @@ function pausedView() {
       <div class="pause-text">
         <p class="pause-result ${L.ok ? 'ok' : 'ko'}" id="pause-h">${L.ok ? ICON.ok : ICON.x}${L.ok ? 'Got it' : 'Missed'}: ${esc(label(L.id))}</p>
         <p class="muted">Now ${C.BUCKETS[C.bucketOf(L.level)]}${L.hinted ? ' (help used)' : ''}. ${afterGrade(L)}</p>
-        ${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo this grade</button>' : ''}
+        <div class="pause-links"><button type="button" class="linkbtn" data-action="open" data-id="${esc(L.id)}">Case details</button>${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo this grade</button>' : ''}</div>
       </div>
     </div>`;
 }
