@@ -3,7 +3,7 @@
 // a lemon yellow, a pure orange and a deep red, close to the colours real cubes use.
 // The yellow also lives in CSS (--sticker-on, base.css) for the OLL diagrams and the logo: keep both equal.
 export const FACE_HEX = {
-  U: '#ffe100', // yellow (top)
+  U: '#fff000', // yellow (top): lemon, well away from orange
   D: '#f5f5f5', // white
   F: '#2f9e4f', // green (front)
   B: '#2b67d1', // blue
