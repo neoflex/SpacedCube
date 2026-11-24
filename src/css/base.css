@@ -53,6 +53,8 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
+/* Keep room for the scrollbar on every view, so short pages do not shift sideways. */
+html { scrollbar-gutter: stable; }
 body {
   background: var(--bg);
   color: var(--ink);
