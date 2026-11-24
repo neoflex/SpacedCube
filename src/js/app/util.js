@@ -31,6 +31,9 @@ ICON.bulb = svg('M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-
 ICON.list = svg('M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01', 2.2);
 ICON.x = svg('M6 6l12 12M18 6L6 18', 2.4);
 ICON.ok = svg('M5 12.5l4.5 4.5L19 7.5', 2.6);
+ICON.clock = svg('M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7.5V12l3 2');
+ICON.star = svg('M12 3.5l2.6 5.3 5.9.8-4.3 4.1 1 5.8L12 16.7l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z');
+ICON.target = svg('M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 11.5v1');
 ICON.next = svg('M5 12h14M13 6l6 6-6 6', 2.4);
 export const THRESH = { 3: 'Familiar', 5: 'Solid', 7: 'Mastered' };
 

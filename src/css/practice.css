@@ -2,10 +2,11 @@
 /* Practice */
 .practice { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
 .trainer { display: grid; gap: 18px; padding: 22px; }
-.newflag {
-  background: var(--accent-soft); color: var(--ink); border-radius: 9px; padding: 9px 12px; font-size: 14px;
-  border-left: 3px solid var(--accent);
-}
+/* A plain note: icon and text, no box. */
+.newflag { display: flex; gap: 9px; align-items: flex-start; color: var(--muted); font-size: 14px; }
+.newflag p { margin: 0; max-width: 68ch; }
+.newflag b { color: var(--ink); font-weight: 600; }
+.newflag .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--accent); }
 .scramble {
   margin: 0; font-family: var(--font-mono); font-weight: 500;
   font-size: clamp(22px, 3.4vw, 34px); line-height: 1.5;
