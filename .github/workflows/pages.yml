@@ -53,7 +53,9 @@ jobs:
           cache: npm
       - run: npm ci
       # Browsers are cached per Playwright version: the download server can be slow, and only an
-      # update of Playwright needs a new download. System libraries are installed every time.
+      # update of Playwright needs a new download. System libraries are installed every time; most
+      # are already on the runner, so a slow or failed install of them only warns (the tests show
+      # whether anything is really missing).
       - name: Playwright version
         id: pw
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
@@ -69,7 +71,8 @@ jobs:
         run: npx playwright install --with-deps ${{ matrix.browser }}
       - name: Install system libraries for ${{ matrix.browser }}
         if: steps.browser-cache.outputs.cache-hit == 'true'
-        timeout-minutes: 10
+        continue-on-error: true
+        timeout-minutes: 6
         run: npx playwright install-deps ${{ matrix.browser }}
       # The tests build dist/ without deployment settings first; the sync test builds its own copy
       # against a mock server.
