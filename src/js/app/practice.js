@@ -237,7 +237,7 @@ export function practiceView() {
   return `${title}<div class="practice">
     <section class="card trainer" aria-labelledby="scramble-h">
       <div class="row between"><h2 class="eyebrow" id="scramble-h">Scramble</h2>
-        <span class="row" style="gap:10px"><span class="muted" style="font-size:13px">Attempt ${state.rep + 1}</span><span class="duepill ${due ? 'on' : ''}" data-due="${due}">${status.text}</span></span></div>
+        <span class="duepill ${due ? 'on' : ''}" data-due="${due}">${status.text}</span></div>
       ${!due && !current.isNew && !current.picked ? `<div class="newflag">${ICON.clock}<p><b>Nothing is due right now.</b>${status.wait ? ` The next case comes due <span class="due-wait">${status.wait}</span>.` : ''} Extra practice keeps you sharp, but levels only rise after a gap, so this is a good moment to stop.</p></div>` : ''}
       ${current.isNew ? `<div class="newflag">${ICON.star}<p><b>New case: ${esc(label(id))}.</b> Learn the algorithm below, then scramble and try it.</p></div>` : ''}
       ${current.picked ? `<div class="newflag">${ICON.target}<p>You picked <b>${esc(label(id))}</b> from its details. After this attempt, practice goes back to the usual order.</p></div>` : ''}
@@ -250,7 +250,7 @@ export function practiceView() {
           <button type="button" class="grade hit" data-action="grade" data-ok="1" aria-describedby="grade-note">${ICON.ok}${helped ? 'Solved with help' : 'Got it'} ${kbd('→')}</button>
         </div>
         <p class="gradenote" id="grade-note">${helped ? 'Recorded as missed: you used a hint or saw the algorithm.' : current.revealed ? '' : '<span class="costdot" aria-hidden="true"></span>Hint and Algorithm count the attempt as missed.'}</p>`}
-        ${!S.paused && last ? `<div class="last">${last}</div>` : ''}
+        <div class="thumbfoot">${!S.paused && last ? `<div class="last">${last}</div>` : ''}<span class="attempt">Attempt ${state.rep + 1}</span></div>
       </div>
     </section>
     ${rail}
