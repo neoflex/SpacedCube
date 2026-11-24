@@ -5,6 +5,7 @@ import { $, $$, esc, prefersReducedMotion } from './util.js';
 import { algFor, label } from './diagrams.js';
 import { onAction } from './actions.js';
 import { modalOpened, modalClosed } from './modal.js';
+import { FACE_INT } from './colors.js';
 
 let threePromise = null;
 function loadThree() {
@@ -20,7 +21,7 @@ function loadThree() {
   }
   return threePromise;
 }
-const HEX = { U: 0xf3c300, D: 0xf4f4f4, F: 0x2f9e4f, B: 0x2b67d1, R: 0xd8392b, L: 0xf08519 };
+const HEX = FACE_INT;
 const SPEEDS = { 0.5: 1400, 1: 800, 2: 400 };
 let V = null; // open viewer
 function savedSpeed() { try { const v = Number(sessionStorage.getItem('v-speed')); return SPEEDS[v] ? v : 1; } catch (e) { return 1; } }

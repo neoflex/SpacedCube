@@ -54,6 +54,7 @@ src/js/app/            The UI, as small ES modules:
   practice.js, cases.js, progress.js, charts.js, options.js   the views
   due.js                 due counts: header badges, title, app icon badge
   diagrams.js            case diagrams and labels
+  colors.js              sticker colours, shared by the diagrams and the 3D viewer
   dialog.js, modal.js    case dialog and shared modal behaviour
   viewer3d.js            3D replay
   render.js, actions.js, keys.js   rendering, click and keyboard handling

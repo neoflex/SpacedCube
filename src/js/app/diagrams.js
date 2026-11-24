@@ -2,8 +2,9 @@
 import { S } from './state.js';
 import { esc } from './util.js';
 
-const FACE_COLORS = { F: '#2f9e4f', R: '#d8392b', B: '#2b67d1', L: '#f08519', U: 'var(--sticker-on)', D: '#f4f4f4' };
-const FACE_NAMES = { F: 'green', R: 'red', B: 'blue', L: 'orange', U: 'yellow', D: 'white' };
+import { FACE_HEX, FACE_NAMES } from './colors.js';
+
+const FACE_COLORS = { ...FACE_HEX, U: 'var(--sticker-on)' };
 
 // What to show for a case: the user's algorithm (if any) and the case as seen from its angle.
 const viewCache = new Map();
@@ -35,7 +36,7 @@ const frame = (id, size, decorative) => {
   const a11y = decorative ? 'aria-hidden="true" focusable="false"' : `role="img" aria-label="${esc(describe(id))}"`;
   return `<svg class="dg" viewBox="0 0 100 100" width="${size}" height="${size}" ${a11y}><rect x="0.5" y="0.5" width="99" height="99" rx="11" fill="var(--cube-body)"/>`;
 };
-const CELL = 24, GAP = 2.5, START = 50 - (3 * CELL + 2 * GAP) / 2, T = 6, O = 3.2;
+const CELL = 24, GAP = 2.5, START = 50 - (3 * CELL + 2 * GAP) / 2, T = 7, O = 2.8; // T: side bars, thick enough to judge their colour
 
 function pllDiagram(id, size, decorative) {
   const c = view4(id);
