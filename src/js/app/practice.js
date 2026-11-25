@@ -301,21 +301,20 @@ function recapView(L) {
   const dots = h.split('').map((x) => `<i class="h${x}"></i>`).join('');
   return `<div class="recap">
       ${change}
-      <div class="lvtrack"><span class="lvtrack-bar" role="img" aria-label="Level ${lvl} of ${max}, ${C.BUCKETS[b]}">${track}</span><span aria-hidden="true">Level ${lvl} of ${max}</span></div>
+      <div class="lvtrack"><span class="lvtrack-bar" role="img" aria-label="Level ${lvl} of ${max}, ${C.BUCKETS[b]}">${track}</span><span aria-hidden="true">Level ${lvl} of ${max}, ${C.BUCKETS[b]}</span></div>
       <p class="muted">${lines.join(' ')}</p>
       ${h ? `<div class="hist"><span>Last ${h.length}: ${right} right</span><span aria-hidden="true">${dots}</span></div>` : ''}
     </div>`;
 }
 
 function pausedView() {
-  const { C } = S;
   const L = S.lastResult;
   // The case's diagram, so you can check it is the one you just solved.
   return `<div class="pausebox" role="group" aria-labelledby="pause-h">
       ${diagram(L.id, 72)}
       <div class="pause-text">
         <p class="pause-result ${L.ok ? 'ok' : 'ko'}" id="pause-h">${L.ok ? ICON.ok : ICON.x}${L.ok ? 'Got it' : 'Missed'}: ${esc(label(L.id))}</p>
-        <p class="muted">${L.speed ? esc(speedText(L)) : `Now ${C.BUCKETS[C.bucketOf(L.level)]}${L.hinted ? ' (help used)' : ''}.`} ${afterGrade(L)}</p>
+        <p class="muted">${L.speed ? esc(speedText(L)) + ' ' : L.hinted ? 'Help used, so it counts as missed. ' : ''}${afterGrade(L)}</p>
       </div>
       ${recapView(L)}
       <div class="pause-links"><button type="button" class="btn small" data-action="open" data-id="${esc(L.id)}">${ICON.eye}Case details</button>${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo this grade</button>' : ''}</div>
