@@ -7,6 +7,7 @@ import { accountView } from './account.js';
 import { newScramble } from './practice.js';
 import { onAction } from './actions.js';
 import { CONFIG } from './env.js';
+import { BUILD } from './build-info.js';
 
 export function syncText() {
   const ok = S.storageOK;
@@ -101,6 +102,7 @@ export function optionsView() {
     </section>
     ${CONFIG.staging ? stagingTools() : ''}
     <p class="muted" style="font-size:13px">${C.kind === 'pll' ? 'PLL algorithms are the widely used standard set; a closing U turn is included where the algorithm needs one.' : 'OLL algorithms and case numbers follow <a href="https://jperm.net/algs/oll">jperm.net/algs/oll</a>.'} Every case diagram and scramble on this page is computed from the algorithms by a cube simulator.</p>
+    <p class="muted version" style="font-size:13px">${versionText()}</p>
   </div>`;
 }
 
@@ -114,6 +116,15 @@ function stagingTools() {
       <div class="row"><button type="button" class="btn small" data-action="stage-master">Make every ${C.name} case Mastered</button></div>
       ${stageMsg ? `<p class="msg ok">${esc(stageMsg)}</p>` : ''}
     </section>`;
+}
+
+// The version that is running: its commit (linked when the repository is known) and build time.
+function versionText() {
+  if (!BUILD.commit) return 'Version: a local build.';
+  const short = BUILD.commit.slice(0, 7);
+  const when = BUILD.time ? new Date(BUILD.time).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const id = BUILD.repo ? `<a href="${esc(BUILD.repo)}/commit/${esc(BUILD.commit)}">${short}</a>` : short;
+  return `Version ${id}${when ? `, built ${esc(when)}` : ''}.`;
 }
 
 // Settings take effect at once (no Save button).
