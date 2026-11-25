@@ -7,6 +7,7 @@ const KEYS = { OLL: 'oll-trainer-v1', PLL: 'pll-trainer-v1' };
 const SET_KEY = 'll-trainer-set';
 const SHORTCUTS_KEY = 'spacedcube-shortcuts';
 const PAUSE_KEY = 'spacedcube-pause';
+const CELEBRATE_KEY = 'spacedcube-celebrate';
 const DAILY_KEEP = 730; // days of chart history kept in the state (keeps each synced row small)
 
 export const S = {
@@ -31,6 +32,7 @@ export const S = {
   storageOK: true,
   shortcuts: true,
   pauseAfterGrade: true, // device setting: wait for "Next scramble" after each grade
+  celebrate: true,       // device setting: confetti when a case moves up a level
   paused: false,         // a grade was just given; the next scramble waits
   speedNews: false,      // Speed practice has just opened: say so on the practice screen
 };
@@ -66,6 +68,7 @@ export function initState() {
   try { const v = localStorage.getItem(SET_KEY); if (v && K.sets[v]) S.set = v; } catch (e) { /* storage blocked */ }
   try { S.shortcuts = localStorage.getItem(SHORTCUTS_KEY) !== 'off'; } catch (e) { /* storage blocked */ }
   try { S.pauseAfterGrade = localStorage.getItem(PAUSE_KEY) !== 'off'; } catch (e) { /* storage blocked */ }
+  try { S.celebrate = localStorage.getItem(CELEBRATE_KEY) !== 'off'; } catch (e) { /* storage blocked */ }
   for (const n of Object.keys(K.sets)) {
     let st;
     try { st = K.sets[n].normalize(loadLocal(n)); }
@@ -89,6 +92,11 @@ export function setPauseAfterGrade(on) {
   S.pauseAfterGrade = on;
   if (!on) S.paused = false;
   try { localStorage.setItem(PAUSE_KEY, on ? 'on' : 'off'); } catch (e) { /* storage blocked */ }
+}
+
+export function setCelebrate(on) {
+  S.celebrate = on;
+  try { localStorage.setItem(CELEBRATE_KEY, on ? 'on' : 'off'); } catch (e) { /* storage blocked */ }
 }
 
 export function setShortcuts(on) {

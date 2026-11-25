@@ -130,7 +130,7 @@
 @media (min-width: 521px) { .hchip { font-size: 15px; gap: 7px; } }
 .hchip { flex: 1 1 auto; }
 /* Pause after a grade: the case's diagram beside the result. */
-.pausebox { grid-template-columns: auto minmax(0, auto); justify-content: center; align-items: center; gap: 16px; text-align: left; justify-items: start; }
+.pausebox { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 16px; text-align: left; justify-items: start; }
 .pause-text { display: grid; gap: 4px; justify-items: start; }
 /* Case details as a button, Undo as a quieter link, far enough apart to tap the right one. */
 .pause-links { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; margin-top: 8px; }
@@ -157,3 +157,20 @@
 .timeres-time b { font-family: var(--font-mono); font-size: 26px; font-variant-numeric: tabular-nums; }
 .timeres-time span { font-size: 14px; color: var(--muted); }
 .rail-sub { margin: 14px 0 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+
+/* Recap of the case after a grade: what changed, the level track, the next level, recent results. */
+.recap { grid-column: 1 / -1; justify-self: stretch; display: grid; gap: 6px; font-size: 13px; justify-items: start; padding-top: 12px; border-top: 1px solid var(--line); }
+.pausebox .pause-links { grid-column: 1 / -1; margin-top: 0; }
+.recap p { margin: 0; }
+.levelup { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--good); }
+.levelup .ic { width: 16px; height: 16px; }
+.lvtrack { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+.lvtrack { justify-self: stretch; }
+.lvtrack-bar { flex: 1 1 auto; min-width: 120px; max-width: 260px; display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.lvtrack > span[aria-hidden] { white-space: nowrap; }
+.lvtrack-bar i { height: 10px; border-radius: 3px; background: var(--surface); border: 1px solid var(--line); }
+.lvtrack-bar i.on { border-color: transparent; }
+.lvtrack-bar i.new { animation: lvpop .7s ease-out 2; }
+@keyframes lvpop { 50% { transform: scaleY(1.8); } }
+@media (prefers-reduced-motion: reduce) { .lvtrack-bar i.new { animation: none; outline: 2px solid var(--good); outline-offset: 1px; } }
+.confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 80; }

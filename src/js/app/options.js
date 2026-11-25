@@ -1,6 +1,6 @@
 // Options: practice settings, how cases are picked, keyboard shortcuts, and your data.
 import * as K from '../core/index.js';
-import { S, save, render, switchSet, setShortcuts, setPauseAfterGrade, backupOwner } from './state.js';
+import { S, save, render, switchSet, setShortcuts, setPauseAfterGrade, setCelebrate, backupOwner } from './state.js';
 import { $, esc, THRESH, announce } from './util.js';
 import { Sync } from './sync.js';
 import { accountView } from './account.js';
@@ -63,6 +63,8 @@ export function optionsView() {
       <h2 id="o-keys">On this device</h2>
       ${opt('o-pause', 'pause', S.pauseAfterGrade, 'Pause after each grade',
         'After Got it or Missed, the result stays on screen and the next scramble waits behind a Next scramble button, in the same place. Restore your cube at your pace; tapping Got it again by habit cannot grade a scramble you have not seen.')}
+      ${opt('o-celebrate', 'celebrate', S.celebrate, 'Confetti on a level up',
+        'A short burst of confetti when a case moves up a level, and more when it reaches Familiar, Solid or Mastered. Never shown when your system asks for reduced motion.')}
       ${opt('o-shortcuts', 'shortcuts', S.shortcuts, 'Single-key shortcuts',
         'While practising: right arrow for Got it, left arrow for Missed, Space to show the algorithm, C to show the case, H for a hint, W to watch it in 3D, Ctrl+Z to undo. In Speed practice, Space starts the timer and any key stops it. Turn them off if they get in the way of speech input or other assistive tools. Every action also has a button.')}
     </section>
@@ -118,6 +120,7 @@ function stagingTools() {
 export function settingChanged(el) {
   const k = el.dataset.setting;
   if (k === 'shortcuts') { setShortcuts(el.checked); announce(el.checked ? 'Keyboard shortcuts on.' : 'Keyboard shortcuts off.'); return; }
+  if (k === 'celebrate') { setCelebrate(el.checked); announce(el.checked ? 'Confetti on.' : 'Confetti off.'); return; }
   if (k === 'pause') { setPauseAfterGrade(el.checked); announce(el.checked ? 'Pause after each grade on.' : 'Pause after each grade off.'); return; }
   S.state.settings[k] = el.type === 'checkbox' ? el.checked : Number(el.value);
   if (k === 'randomPLL' && S.current) S.current.scramble = newScramble(S.current.id);

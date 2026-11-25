@@ -20,7 +20,8 @@ It is a static web app: it installs full screen on a phone, works offline, and c
 - **Scrambles generated from the algorithms.** A sticker-level cube simulator inverts the algorithm and, by default, disguises the scramble (OLL: random last-layer permutation; PLL: combination of two other PLLs that lands on the target case), so the case cannot be recognised from the moves. Every scramble is checked in the simulator before it is shown.
 - **Diagrams computed from the algorithms.** OLL: top face and side stickers. PLL: side colours and permutation arrows.
 - **Help that counts honestly.** Help chips under the scramble: the case (free), hints one move at a time, or the full algorithm. Hints and the algorithm turn the attempt into a miss, marked on the chip and explained under the grade buttons, with a confirmation first.
-- **No accidental double grades.** After Got it or Missed the result stays on screen and a Next scramble button takes the place of the grade buttons, so tapping Got it again after restoring the cube grades nothing (Options, On this device: Pause after each grade).
+- **No accidental double grades.** After Got it or Missed the result stays on screen and a Next scramble button takes the place of the grade buttons, so tapping Got it again after restoring the cube grades nothing (Options, On this device: Pause after each grade). The pause also recaps the case: what changed, its level on a 10-step track, when a correct answer can raise it next and how far the next stage is, and its recent results.
+- **Level ups are celebrated.** A short burst of confetti in the cube's colours when a case (or its speed level) moves up, more when it reaches a new stage. Never with reduced motion; can be turned off (Options, On this device).
 - **3D replay.** Plays the solution on a 3D cube starting from your actual scramble (three.js, loaded on first use).
 - **Speed practice, after memorisation.** Once every case of a set is Mastered, a Memory / Speed switch appears on the practice screen. In Speed you look at the case, start the timer, solve and stop it, so only the solve is timed. Each case gets a speed level from its turns per second, the slowest cases come up most, and speed work never changes a memory level unless the case was due or you missed it.
 - **Practise a chosen case.** "Practise it now" in a case's details gives one scramble of that case (adding it to practice if needed). It is a normal attempt, graded and scheduled like any other; it just skips recognition.
@@ -55,6 +56,7 @@ src/js/app/            The UI, as small ES modules:
   captcha.js, account.js Turnstile check and sign-in
   practice.js, cases.js, progress.js, charts.js, options.js   the views
   timer.js               the Speed timer (start, stop, false start)
+  confetti.js            the level-up confetti (canvas, no library)
   due.js                 due counts: header badges, title, app icon badge
   diagrams.js            case diagrams and labels
   colors.js              sticker colours, shared by the diagrams and the 3D viewer

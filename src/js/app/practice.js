@@ -5,7 +5,8 @@ import { S, save, snapshotToday, render } from './state.js';
 import { $, esc, dayKey, pct, THRESH, ICON, announce } from './util.js';
 import { diagram, chip, algFor, label } from './diagrams.js';
 import { onAction } from './actions.js';
-import { dueStatus } from './due.js';
+import { dueStatus, inTime } from './due.js';
+import { confetti } from './confetti.js';
 import { fmtSec } from './timer.js';
 
 const rng = Math.random;
@@ -54,12 +55,15 @@ export function gradeCurrent(ok) {
   S.undo = { state: JSON.stringify(state), current: { ...current, timer: current.timer && { ...current.timer } } };
   const id = current.id;
   const now = Date.now();
+  const prevLevel = state.cases[id].level;
+  const prevSpeed = K.speedOf(state.cases[id]);
   let level, review = true, speed = null;
   if (current.speed) {
     const turns = K.turnCount(algFor(id));
     const ms = ok ? current.timer.ms : 0;
     ({ level, review } = C.gradeSpeed(state, id, ok, ms, turns, now));
-    speed = { ms, turns };
+    const sp = K.speedOf(state.cases[id]);
+    speed = { ms, turns, prev: prevSpeed ? prevSpeed.level : null, level: sp ? sp.level : null };
   } else {
     level = C.grade(state, id, ok, now);
   }
@@ -68,15 +72,21 @@ export function gradeCurrent(ok) {
   snapshotToday();
   const today = state.daily[dayKey()];
   today.n += 1; if (ok) today.ok += 1;
-  S.lastResult = { id, ok, level, hinted, review, speed };
+  S.lastResult = { id, ok, level, prevLevel, hinted, review, speed };
   save();
   nextCase();
   // Pause: the next scramble waits behind "Next scramble", which takes the place of the grade
   // buttons. Tapping "Got it" again out of habit (after restoring the cube) then grades nothing.
   S.paused = S.pauseAfterGrade && !!S.current;
   render();
+  // A level up is celebrated (more for a new stage); a speed level up too.
+  const stageUp = C.bucketOf(level) > C.bucketOf(prevLevel);
+  const speedUp = !!speed && speed.prev != null && speed.level > speed.prev;
+  if (level > prevLevel || speedUp) confetti(stageUp ? 2.2 : 1);
   let result = `${ok ? 'Got it' : 'Missed'}: ${label(id)}`;
   result += speed ? `. ${speedText(S.lastResult)}` : `, now ${C.BUCKETS[C.bucketOf(level)]}.`;
+  if (level > prevLevel) result += ` Level up: ${prevLevel} to ${level}.`;
+  if (speedUp) result += ` Speed level up: ${speed.prev} to ${speed.level}.`;
   if (opened) result += ` Every ${C.name} case is Mastered: Speed practice is open.`;
   if (S.paused) { announce(`${result} ${afterGrade(S.lastResult)}`); focusSoon('#next-btn'); }
   else announce(`${result} ${S.current ? 'New scramble.' : ''}`);
@@ -256,6 +266,47 @@ function afterGrade(L) {
 }
 
 // After a grade (pause on): the result, and the next scramble behind one button.
+// First level of each stage: Learning 1, Familiar 3, Solid 5, Mastered 7.
+const STAGE_START = [0, 1, 3, 5, 7];
+
+// The case's progress after the grade: what changed, the level track, how far the next level and
+// the next stage are, and its recent results.
+function recapView(L) {
+  const { C, state } = S;
+  const cs = state.cases[L.id];
+  const lvl = L.level, prev = L.prevLevel, max = C.MAX_LEVEL;
+  const up = lvl > prev, b = C.bucketOf(lvl);
+  let change;
+  if (up) change = `<p class="levelup">${ICON.star}Level up: ${prev} to ${lvl}${b > C.bucketOf(prev) ? `. Now ${C.BUCKETS[b]}!` : '.'}</p>`;
+  else if (lvl < prev) change = `<p>Down from level ${prev} to ${lvl}, so it comes back sooner.</p>`;
+  else if (L.ok && lvl < max && L.review !== false) change = `<p>Still level ${lvl}: too soon after the last time to count for a level up.</p>`;
+  else change = '';
+  const track = Array.from({ length: max }, (_, i) => {
+    const n = i + 1, on = n <= lvl;
+    return `<i class="${on ? 'on' : ''}${up && n > prev && n <= lvl ? ' new' : ''}"${on ? ` style="background:var(--m${C.bucketOf(n)})"` : ''}></i>`;
+  }).join('');
+  const lines = [];
+  if (lvl >= max) lines.push('Top level reached.');
+  else {
+    const gap = C.GAP_MS[lvl];
+    lines.push(`Next level: get it right again ${gap ? `${inTime(gap)} or later` : 'next time'}.`);
+    if (b < 4) {
+      const need = STAGE_START[b + 1] - lvl;
+      const wait = C.GAP_MS.slice(lvl, lvl + need).reduce((a, x) => a + x, 0);
+      lines.push(`${C.BUCKETS[b + 1]}: ${need} more level up${need > 1 ? 's' : ''}${wait ? `, at the earliest ${inTime(wait)}` : ''}.`);
+    }
+  }
+  const h = cs.hist || '';
+  const right = h.split('').filter((x) => x === '1').length;
+  const dots = h.split('').map((x) => `<i class="h${x}"></i>`).join('');
+  return `<div class="recap">
+      ${change}
+      <div class="lvtrack"><span class="lvtrack-bar" role="img" aria-label="Level ${lvl} of ${max}, ${C.BUCKETS[b]}">${track}</span><span aria-hidden="true">Level ${lvl} of ${max}</span></div>
+      <p class="muted">${lines.join(' ')}</p>
+      ${h ? `<div class="hist"><span>Last ${h.length}: ${right} right</span><span aria-hidden="true">${dots}</span></div>` : ''}
+    </div>`;
+}
+
 function pausedView() {
   const { C } = S;
   const L = S.lastResult;
@@ -265,8 +316,9 @@ function pausedView() {
       <div class="pause-text">
         <p class="pause-result ${L.ok ? 'ok' : 'ko'}" id="pause-h">${L.ok ? ICON.ok : ICON.x}${L.ok ? 'Got it' : 'Missed'}: ${esc(label(L.id))}</p>
         <p class="muted">${L.speed ? esc(speedText(L)) : `Now ${C.BUCKETS[C.bucketOf(L.level)]}${L.hinted ? ' (help used)' : ''}.`} ${afterGrade(L)}</p>
-        <div class="pause-links"><button type="button" class="btn small" data-action="open" data-id="${esc(L.id)}">${ICON.eye}Case details</button>${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo this grade</button>' : ''}</div>
       </div>
+      ${recapView(L)}
+      <div class="pause-links"><button type="button" class="btn small" data-action="open" data-id="${esc(L.id)}">${ICON.eye}Case details</button>${S.undo ? '<button type="button" class="linkbtn" data-action="undo">Undo this grade</button>' : ''}</div>
     </div>`;
 }
 
