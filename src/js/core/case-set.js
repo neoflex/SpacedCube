@@ -218,6 +218,10 @@ export function makeSet(def) {
     const recent = [s.lastCase, act.length >= 5 ? s.prevCase : null].filter((x) => x != null);
     if (act.length > 1) pool = act.filter((id) => !recent.includes(id));
     if (!pool.length) pool = act;
+    // While anything is due, only due cases come up: a case that is not due yet would restart its
+    // gap without moving up. With 45 cases and one due, the weights alone picked it 8% of the time.
+    const due = pool.filter((id) => isDue(s, id, now));
+    if (due.length) pool = due;
     const w = pool.map((id) => weightOf(s.cases[id], s.rep, now));
     const tot = w.reduce((a, b) => a + b, 0);
     let r = rng() * tot;

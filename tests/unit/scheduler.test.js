@@ -94,3 +94,32 @@ test('nextDueAt is null when nothing time-based is waiting', () => {
   C.introduce(s, '1', 0);
   assert.equal(C.nextDueAt(s, Date.now()), null);
 });
+
+test('while a case is due, only due cases come up; then extra practice is weighted', () => {
+  const s = fresh();
+  const now = Date.UTC(2026, 0, 10);
+  const ids = C.INTRO_ORDER.slice(0, 45);
+  // 45 cases at level 5 (2-day gap), seen 1 h to 40 h ago: none due. Then one is past its gap.
+  ids.forEach((id, i) => { C.introduce(s, id, 5); Object.assign(s.cases[id], { n: 10, ok: 10, hist: '1111111111', last: 0, lastTs: now - (1 + i % 40) * HOUR }); });
+  s.rep = 100;
+  const due = ids[7];
+  s.cases[due].lastTs = now - 3 * DAY;
+  assert.deepEqual(C.dueIds(s, now), [due]);
+  for (let i = 0; i < 200; i++) assert.equal(C.pickNext(s, Math.random, now), due);
+  // Once done, nothing is due: extra practice draws from all cases, closest to due most often.
+  C.grade(s, due, true, now);
+  assert.equal(s.cases[due].level, 6);
+  const counts = {};
+  for (let i = 0; i < 4000; i++) { const id = C.pickNext(s, Math.random, now); counts[id] = (counts[id] || 0) + 1; }
+  assert.ok(Object.keys(counts).length > 20, 'many cases come up');
+  assert.ok((counts[ids[39]] || 0) > (counts[ids[0]] || 0), 'seen 40 h ago comes up more than seen 1 h ago');
+});
+
+test('a due case just shown is not repeated: the others come up meanwhile', () => {
+  const s = fresh();
+  const now = Date.UTC(2026, 0, 10);
+  ['27', '26', '21'].forEach((id) => { C.introduce(s, id, 5); Object.assign(s.cases[id], { n: 5, ok: 5, last: 0, lastTs: now - HOUR }); });
+  s.cases['27'].lastTs = now - 3 * DAY;
+  s.lastCase = '27';
+  for (let i = 0; i < 50; i++) assert.notEqual(C.pickNext(s, Math.random, now), '27');
+});
