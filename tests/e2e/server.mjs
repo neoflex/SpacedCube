@@ -24,7 +24,8 @@ export function startServer(dir, api, port = 0) {
     if (!file.startsWith(normalize(base))) { res.writeHead(403).end(); return; }
     try {
       const data = await readFile(file);
-      res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream' }).end(data);
+      // The caching GitHub Pages uses: browsers may reuse a file for 10 minutes without asking.
+      res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Cache-Control': 'max-age=600' }).end(data);
     } catch {
       res.writeHead(404).end('not found');
     }

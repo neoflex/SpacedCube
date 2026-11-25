@@ -71,7 +71,7 @@ src/fonts/, src/vendor/  Self-hosted fonts and three.js, with their licences.
 src/types.d.ts         Types of the few globals the app reads (for the type check).
 tools/icons.mjs        Draws the app icons (Node standard library only).
 supabase/schema.sql    Table, row-level security, grants and delete_my_account() for sync.
-build.mjs              Copies src/ to dist/ and generates config.js, the CSP, the footer, module preloads, privacy.html, icons and sw.js.
+build.mjs              Copies src/ to dist/ and generates config.js, the CSP, the footer, module preloads, versioned addresses (file.js?v=<version>), privacy.html, icons and sw.js.
 tests/unit/            node:test unit tests: scheduler, speed, saved-data versions, state, sync.
 tests/unit/core.test.js  Every case and scramble checked in the simulator.
 tests/e2e/             Browser tests (Playwright Test): every screen with axe, keyboard and focus, offline and sync
@@ -165,7 +165,7 @@ Set the custom domain, if any, in the repository's Pages settings.
 
 The build turns the same settings into a Content Security Policy (a `<meta>` tag, since GitHub Pages cannot send headers): scripts and connections only to the site itself, the configured Supabase project and, when a site key is set, Cloudflare Turnstile. No inline scripts, no `eval`.
 
-The app caches itself on the first visit and then works offline. On a phone use "Add to Home Screen" (iOS Safari) or "Install app" (Android Chrome); it opens full screen and respects the notch and home indicator. When a new version is deployed, an open app offers to reload.
+The app caches itself on the first visit and then works offline. On a phone use "Add to Home Screen" (iOS Safari) or "Install app" (Android Chrome); it opens full screen and respects the notch and home indicator. Code and styles load at addresses that carry the build version (`file.js?v=<version>`) and the page itself is always fetched fresh when online, so the next time the app is opened or reloaded after a deploy it runs the new version: no cache can hand it an old module. An app left open also offers to reload.
 
 ### Accounts
 

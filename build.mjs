@@ -166,9 +166,25 @@ const files = walk(dist).map((p) => posix(relative(dist, p)))
 const hash = createHash('sha256');
 for (const f of files) if (f !== 'config.js') hash.update(readFileSync(join(dist, f)));
 const version = hash.digest('hex').slice(0, 12);
+
+// ---------- Versioned addresses ----------
+// Code and styles are loaded as file.js?v=<version>, imports included. A deploy changes every
+// address, so no cache (the browser's memory or HTTP cache, which GitHub Pages lets keep a file for
+// 10 minutes, or the service worker's) can hand an open or reopened app an old module. Only the page
+// itself is fetched fresh, and it names the new addresses.
+const versioned = new Set(files.filter((f) => /^(js\/.*\.js|css\/.*\.css|fonts\/fonts\.css)$/.test(f)));
+const SPEC_RE = /(\bfrom\s*|\bimport\s*)(['"])(\.\.?\/[^'"]+\.js)\2/g;
+for (const f of versioned) {
+  if (!f.endsWith('.js')) continue;
+  const p = join(dist, f);
+  writeFileSync(p, read(p).replace(SPEC_RE, (m, kw, q, spec) => `${kw}${q}${spec}?v=${version}${q}`));
+}
+writeFileSync(indexPath, read(indexPath).replace(/(href|src)="((?:js|css)\/[^"?]+\.(?:js|css)|fonts\/fonts\.css)"/g,
+  (m, attr, f) => (versioned.has(f) ? `${attr}="${f}?v=${version}"` : m)));
+const cacheList = files.map((f) => './' + f + (versioned.has(f) ? `?v=${version}` : ''));
 writeFileSync(join(dist, 'sw.js'), read(join(src, 'sw.js'))
   .replace('@VERSION@', version)
-  .replace('/*@FILES@*/[]', JSON.stringify(files.map((f) => './' + f))));
+  .replace('/*@FILES@*/[]', JSON.stringify(cacheList)));
 
 console.log(`${posix(relative(process.cwd(), dist)) || '.'}/: ${files.length + 1} files (${modules.length + 1} modules), cache version ${version}, `
   + `sync ${sync ? 'on' : 'off'}${config.allowSignup ? ', sign-up open' : ''}${config.turnstileSiteKey ? ', Turnstile' : ''}`);
